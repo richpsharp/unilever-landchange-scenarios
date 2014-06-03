@@ -3,7 +3,7 @@ import hashlib
 import pickle
 
 from invest_natcap.routing import routing_utils
-
+from invest_natcap import raster_utils
 
 def hashfile(filename, blocksize=65536):
     afile = open(filename, 'rb')
@@ -25,7 +25,7 @@ def load_obj(filename):
         return pickle.load(f)
 
 
-def run_simulation(parameters):
+def initialize_simulation(parameters):
     for dirname in [parameters['temporary_file_directory'],
                     parameters['output_file_directory']]:
         if not os.path.exists(dirname):
@@ -53,6 +53,8 @@ def run_simulation(parameters):
             parameters['temporary_file_directory'], 'flow_accumulation.tif')
         parameters['stream_uri'] = os.path.join(
             parameters['temporary_file_directory'], 'streams.tif')
+        parameters['distance_from_stream_filename'] = os.path.join(
+            parameters['temporary_file_directory'], 'distance_from_stream.tif')
         
         print 'resolving filling pits'
         dem_pit_filled_uri =  os.path.join(
@@ -79,6 +81,11 @@ def run_simulation(parameters):
             parameters['flow_accumulation_filename'], 
             parameters['flow_accumulation_threshold_for_streams'],
             parameters['stream_uri'])
+            
+        print 'calculate distance from streams'
+        raster_utils.distance_transform_edt(
+            parameters['stream_uri'],
+            parameters['distance_from_stream_filename'])
     else:
         print 'streams already calculated, use those'
         
@@ -87,8 +94,8 @@ def run_simulation(parameters):
 
 if __name__ == '__main__':
     PARAMETERS = {
-        'dem_filename': 'C:/Users/rich/Dropbox/unilever_data/mg_dem_90f/w001001.adf',
-        #'dem_filename': "C:/InVEST_dev39_3_0_1 [6d541e569a05]_x86/Base_Data/Freshwater/dem/w001001.adf",
+        #'dem_filename': 'C:/Users/rich/Dropbox/unilever_data/mg_dem_90f/w001001.adf',
+        'dem_filename': "C:/InVEST_dev39_3_0_1 [6d541e569a05]_x86/Base_Data/Freshwater/dem/w001001.adf",
         'flow_accumulation_threshold_for_streams': 1000, 
         'lulc_filename': 'C:/Users/rich/Dropbox/unilever_data/lulc_2008.tif',
         'convert_from_lulc_codes': [2],
@@ -98,8 +105,6 @@ if __name__ == '__main__':
         'temporary_file_directory': 'temp',
         'output_file_directory': 'output',
     }
-    run_simulation(PARAMETERS)
-    
-    
+    initialize_simulation(PARAMETERS)
     
     
