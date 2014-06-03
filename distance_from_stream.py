@@ -87,8 +87,8 @@ def run_simulation(parameters):
 
 if __name__ == '__main__':
     PARAMETERS = {
-        #'dem_filename': 'C:/Users/rich/Dropbox/unilever_data/mg_dem_90f/w001001.adf',
-        'dem_filename': "C:/InVEST_dev39_3_0_1 [6d541e569a05]_x86/Base_Data/Freshwater/dem/w001001.adf",
+        'dem_filename': 'C:/Users/rich/Dropbox/unilever_data/mg_dem_90f/w001001.adf',
+        #'dem_filename': "C:/InVEST_dev39_3_0_1 [6d541e569a05]_x86/Base_Data/Freshwater/dem/w001001.adf",
         'flow_accumulation_threshold_for_streams': 1000, 
         'lulc_filename': 'C:/Users/rich/Dropbox/unilever_data/lulc_2008.tif',
         'convert_from_lulc_codes': [2],
