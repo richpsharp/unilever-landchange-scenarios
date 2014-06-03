@@ -44,9 +44,10 @@ def initialize_simulation(parameters):
             if previous_parameters[parameter] != parameters[parameter]:
                 break
         else:
-            parameters['stream_uri'] = previous_parameters['stream_uri']
+            parameters['distance_from_stream_filename'] = (
+                previous_parameters['distance_from_stream_filename'])
     
-    if 'stream_uri' not in parameters:
+    if 'distance_from_stream_filename' not in parameters:
         parameters['flow_direction_filename'] = os.path.join(
             parameters['temporary_file_directory'], 'flow_direction.tif')
         parameters['flow_accumulation_filename'] = os.path.join(
@@ -91,6 +92,11 @@ def initialize_simulation(parameters):
         
     save_obj(previous_run_file, parameters)
 
+ 
+def step_land_change(parameters):
+    for step_number in xrange(parameters['number_of_steps']):
+        print step_number
+
 
 if __name__ == '__main__':
     PARAMETERS = {
@@ -106,5 +112,5 @@ if __name__ == '__main__':
         'output_file_directory': 'output',
     }
     initialize_simulation(PARAMETERS)
-    
+    step_land_change(PARAMETERS)
     
