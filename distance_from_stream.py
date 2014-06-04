@@ -100,7 +100,7 @@ def initialize_simulation(parameters):
 def step_land_change(parameters):
     conversion_priority_filename = os.path.join(
         parameters['temporary_file_directory'], 'conversion_priority.tif')
-    conversion_nodata = -1
+    conversion_nodata = 9999
     conversion_pixel_size = raster_utils.get_cell_size_from_uri(
         parameters['lulc_filename'])
     lulc_nodata = raster_utils.get_nodata_from_uri(parameters['lulc_filename'])
@@ -110,7 +110,8 @@ def step_land_change(parameters):
         conversion_array[:] = conversion_nodata
         for convert_code in parameters['convert_from_lulc_codes']:
             mask = (lulc == convert_code)
-            conversion_array[mask] = distance[mask]
+            #invert the distance for sorting
+            conversion_array[mask] = -distance[mask]
     
         return conversion_array
     
@@ -128,6 +129,19 @@ def step_land_change(parameters):
     lulc_array = lulc_band.ReadAsArray()
     for step_index in range(parameters['number_of_steps']):
         print 'making lulc %d' % step_index
+
+        converted_pixels = 0
+        for value, flat_index, _ in priority_pixels:
+            if value == -conversion_nodata:
+                print 'all pixels converted, breaking loop'
+                break
+            numpy.reshape(lulc_array, -1)[flat_index] = (
+                parameters['convert_to_lulc_code'])
+            converted_pixels += 1
+            if converted_pixels >= parameters['pixels_per_step_to_convert']:
+                break
+    
+        print 'saving lulc %d' % step_index
         output_lulc_uri = os.path.join(
             parameters['temporary_file_directory'],
             'lulc_converted_%d.tif' % step_index)
@@ -138,7 +152,6 @@ def step_land_change(parameters):
         output_lulc_band = output_lulc_ds.GetRasterBand(1)
         output_lulc_band.WriteArray(lulc_array)
 
-
 if __name__ == '__main__':
     PARAMETERS = {
         #'dem_filename': 'C:/Users/rich/Dropbox/unilever_data/mg_dem_90f/w001001.adf',
@@ -148,7 +161,7 @@ if __name__ == '__main__':
         'flow_accumulation_threshold_for_streams': 1000,
         'convert_from_lulc_codes': range(49, 67) + [95, 98], #read from biophysical table
         'convert_to_lulc_code':82, #this is 'field crop'
-        'pixels_per_step_to_convert': 100,
+        'pixels_per_step_to_convert': 100000,
         'number_of_steps': 10,
         'temporary_file_directory': 'temp',
         'output_file_directory': 'output',
