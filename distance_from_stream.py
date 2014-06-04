@@ -8,6 +8,7 @@ import numpy
 from invest_natcap.routing import routing_utils
 from invest_natcap import raster_utils
 from invest_natcap.scenario_generator import disk_sort
+import invest_natcap.sdr.sdr
 
 def hashfile(filename, blocksize=65536):
     afile = open(filename, 'rb')
@@ -127,20 +128,22 @@ def step_land_change(parameters):
     lulc_ds = gdal.Open(parameters['lulc_filename'])
     lulc_band = lulc_ds.GetRasterBand(1)
     lulc_array = lulc_band.ReadAsArray()
+    output_lulc_list = []
     for step_index in range(parameters['number_of_steps']):
         print 'making lulc %d' % step_index
 
         converted_pixels = 0
-        for value, flat_index, _ in priority_pixels:
-            if value == -conversion_nodata:
-                print 'all pixels converted, breaking loop'
-                break
-            numpy.reshape(lulc_array, -1)[flat_index] = (
-                parameters['convert_to_lulc_code'])
-            converted_pixels += 1
-            if converted_pixels >= parameters['pixels_per_step_to_convert']:
-                break
-    
+        if step_index != 0:
+            for value, flat_index, _ in priority_pixels:
+                if value == -conversion_nodata:
+                    print 'all pixels converted, breaking loop'
+                    break
+                numpy.reshape(lulc_array, -1)[flat_index] = (
+                    parameters['convert_to_lulc_code'])
+                converted_pixels += 1
+                if converted_pixels >= parameters['pixels_per_step_to_convert']:
+                    break
+        
         print 'saving lulc %d' % step_index
         output_lulc_uri = os.path.join(
             parameters['temporary_file_directory'],
@@ -151,13 +154,52 @@ def step_land_change(parameters):
         output_lulc_ds = gdal.Open(output_lulc_uri, gdal.GA_Update)
         output_lulc_band = output_lulc_ds.GetRasterBand(1)
         output_lulc_band.WriteArray(lulc_array)
+        output_lulc_list.append(output_lulc_uri)
+    return output_lulc_list
 
+    
+def run_sediment_analysis(parameters, land_cover_uri_list):
+    sed_export_values = []
+    sed_export_table_uri = os.path.join(
+        parameters['output_file_directory'], 'sed_export_table.csv')
+    sed_export_table = open(sed_export_table_uri, 'w')
+    sed_export_table.write('step,value\n')
+    for index, lulc_uri in enumerate(land_cover_uri_list):
+        sdr_args = {
+            'workspace_dir': parameters['output_file_directory'],
+            'suffix': str(index),
+            'dem_uri': parameters['dem_filename'],
+            'erosivity_uri': parameters['erosivity_uri'],
+            'erodibility_uri': parameters['erodibility_uri'],
+            'landuse_uri': lulc_uri,
+            'watersheds_uri': parameters['watersheds_uri'],
+            'biophysical_table_uri': parameters['biophysical_table_uri'],
+            'threshold_flow_accumulation': parameters['flow_accumulation_threshold_for_streams'],
+            'k_param': 2,
+            'sdr_max': 0.8,
+            'ic_0_param': 0.5,
+        }
+        invest_natcap.sdr.sdr.execute(sdr_args)
+        sdr_export_uri = os.path.join(sdr_args['workspace_dir'], 'output', "sed_export_%d.tif" % index)
+        sed_export_ds = gdal.Open(sdr_export_uri)
+        sed_export_band = sed_export_ds.GetRasterBand(1)
+        nodata = raster_utils.get_nodata_from_uri(sdr_export_uri)
+        sed_export_total = 0.0
+        for row_index in xrange(sed_export_ds.RasterYSize):
+            sed_array = sed_export_band.ReadAsArray(
+                0, row_index, sed_export_ds.RasterXSize, 1)
+            sed_export_total += numpy.sum(sed_array[(sed_array != nodata) & (~numpy.isnan(sed_array))])
+        sed_export_table.write('%d,%f\n' % (index, sed_export_total))
 if __name__ == '__main__':
     PARAMETERS = {
         #'dem_filename': 'C:/Users/rich/Dropbox/unilever_data/mg_dem_90f/w001001.adf',
         #'lulc_filename': 'C:/Users/rich/Dropbox/unilever_data/lulc_2008.tif',
         'dem_filename': "C:/InVEST_dev39_3_0_1 [6d541e569a05]_x86/Base_Data/Freshwater/dem/w001001.adf",
         'lulc_filename': 'C:/InVEST_dev39_3_0_1 [6d541e569a05]_x86/Base_Data/Terrestrial/landuse_90/w001001.adf',
+        'erosivity_uri': "C:/InVEST_dev39_3_0_1 [6d541e569a05]_x86/Base_Data/Freshwater/erosivity/w001001.adf",
+        'erodibility_uri': "C:/InVEST_dev39_3_0_1 [6d541e569a05]_x86/Base_Data/Freshwater/erodibility/w001001.adf",
+        'watersheds_uri': "C:/InVEST_dev39_3_0_1 [6d541e569a05]_x86/Base_Data/Freshwater/watersheds.shp",
+        'biophysical_table_uri': "C:/InVEST_dev39_3_0_1 [6d541e569a05]_x86/Base_Data/Freshwater/biophysical_table.csv",
         'flow_accumulation_threshold_for_streams': 1000,
         'convert_from_lulc_codes': range(49, 67) + [95, 98], #read from biophysical table
         'convert_to_lulc_code':82, #this is 'field crop'
@@ -167,5 +209,7 @@ if __name__ == '__main__':
         'output_file_directory': 'output',
     }
     initialize_simulation(PARAMETERS)
-    step_land_change(PARAMETERS)
+    LAND_COVER_URI_LIST = step_land_change(PARAMETERS)
+    run_sediment_analysis(PARAMETERS, LAND_COVER_URI_LIST)
+    
     
