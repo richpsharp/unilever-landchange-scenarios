@@ -7,6 +7,7 @@ import numpy
 
 from invest_natcap.routing import routing_utils
 from invest_natcap import raster_utils
+from invest_natcap.scenario_generator import disk_sort
 
 def hashfile(filename, blocksize=65536):
     afile = open(filename, 'rb')
@@ -120,6 +121,22 @@ def step_land_change(parameters):
         conversion_nodata, conversion_pixel_size, 'intersection',
         dataset_to_align_index=0, vectorize_op=False)
 
+    #build iterator
+    priority_pixels = disk_sort.sort_to_disk(conversion_priority_filename, 0)
+    lulc_ds = gdal.Open(parameters['lulc_filename'])
+    lulc_band = lulc_ds.GetRasterBand(1)
+    lulc_array = lulc_band.ReadAsArray()
+    for step_index in range(parameters['number_of_steps']):
+        print 'making lulc %d' % step_index
+        output_lulc_uri = os.path.join(
+            parameters['temporary_file_directory'],
+            'lulc_converted_%d.tif' % step_index)
+        raster_utils.new_raster_from_base_uri(
+            parameters['lulc_filename'], output_lulc_uri, 'GTiff', lulc_nodata,
+            gdal.GDT_Int32)
+        output_lulc_ds = gdal.Open(output_lulc_uri, gdal.GA_Update)
+        output_lulc_band = output_lulc_ds.GetRasterBand(1)
+        output_lulc_band.WriteArray(lulc_array)
 
 
 if __name__ == '__main__':
@@ -129,8 +146,8 @@ if __name__ == '__main__':
         'dem_filename': "C:/InVEST_dev39_3_0_1 [6d541e569a05]_x86/Base_Data/Freshwater/dem/w001001.adf",
         'lulc_filename': 'C:/InVEST_dev39_3_0_1 [6d541e569a05]_x86/Base_Data/Terrestrial/landuse_90/w001001.adf',
         'flow_accumulation_threshold_for_streams': 1000,
-        'convert_from_lulc_codes': range(49, 67) + [95, 98],
-        'convert_to_lulc_code': 18,
+        'convert_from_lulc_codes': range(49, 67) + [95, 98], #read from biophysical table
+        'convert_to_lulc_code':82, #this is 'field crop'
         'pixels_per_step_to_convert': 100,
         'number_of_steps': 10,
         'temporary_file_directory': 'temp',
