@@ -161,6 +161,10 @@ def step_land_change_from_streams(
                 if converted_pixels >= parameters['pixels_per_step_to_convert']:
                     break
         
+        if converted_pixels == 0:
+            print 'everything converted already, breaking loop'
+            break
+        
         print 'saving lulc %d' % step_index
         output_lulc_uri = os.path.join(
             parameters['temporary_file_directory'],
@@ -179,7 +183,7 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
     sed_export_table_uri = os.path.join(
         parameters['output_file_directory'], summary_table_uri)
     sed_export_table = open(sed_export_table_uri, 'w')
-    sed_export_table.write('step,value\n')
+    sed_export_table.write('step,%s\n' % os.path.splitext(summary_table_uri)[0])
     for index, lulc_uri in enumerate(land_cover_uri_list):
         sdr_args = {
             'workspace_dir': parameters['output_file_directory'],
@@ -221,15 +225,17 @@ if __name__ == '__main__':
         'flow_accumulation_threshold_for_streams': 1000,
         'convert_from_lulc_codes': range(49, 67) + [95, 98], #read from biophysical table
         'convert_to_lulc_code':82, #this is 'field crop'
-        'pixels_per_step_to_convert': 100000,
-        'number_of_steps': 10,
+        'pixels_per_step_to_convert': 50000,
+        'number_of_steps': 20,
         'temporary_file_directory': 'temp',
         'output_file_directory': 'output',
     }
     initialize_simulation(PARAMETERS)
-    for MODE, FILENAME, BUFFER in [("to_stream", "to_stream", 0),
+    for MODE, FILENAME, BUFFER in [
+        ("to_stream", "to_stream", 0),
         ("from_stream", "from_stream", 0),
         ("from_stream", "from_stream_with_buffer_1", 1),
+        ("from_stream", "from_stream_with_buffer_2", 2),
         ("from_stream", "from_stream_with_buffer_3", 3),
         ("from_stream", "from_stream_with_buffer_9", 9)]:
         #make the filename the mode, thus mode is passed in twice
