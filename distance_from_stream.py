@@ -161,7 +161,7 @@ def step_land_change_from_streams(
                 if converted_pixels >= parameters['pixels_per_step_to_convert']:
                     break
         
-        if converted_pixels == 0:
+        if converted_pixels == 0 and step_index != 0:
             print 'everything converted already, breaking loop'
             break
         
