@@ -98,10 +98,22 @@ def initialize_simulation(parameters):
     save_obj(previous_run_file, parameters)
 
  
-def step_land_change(parameters):
+def step_land_change_from_streams(parameters, base_name, mode):
+    """
+        parameters - the context from the main function
+        base_name - base of the filename
+        mode - one of "to_stream" or "from_stream"
+        
+        returns a list of land cover change from base to increasing expansion
+    """
+    
+    if mode == "to_stream":
+        direction_factor = -1
+    elif mode == "from_stream":
+        direction_factor = 1
     conversion_priority_filename = os.path.join(
         parameters['temporary_file_directory'], 'conversion_priority.tif')
-    conversion_nodata = 9999
+    conversion_nodata = direction_factor * 9999
     conversion_pixel_size = raster_utils.get_cell_size_from_uri(
         parameters['lulc_filename'])
     lulc_nodata = raster_utils.get_nodata_from_uri(parameters['lulc_filename'])
@@ -112,7 +124,7 @@ def step_land_change(parameters):
         for convert_code in parameters['convert_from_lulc_codes']:
             mask = (lulc == convert_code)
             #invert the distance for sorting
-            conversion_array[mask] = -distance[mask]
+            conversion_array[mask] = -distance[mask] * direction_factor
     
         return conversion_array
     
@@ -147,7 +159,7 @@ def step_land_change(parameters):
         print 'saving lulc %d' % step_index
         output_lulc_uri = os.path.join(
             parameters['temporary_file_directory'],
-            'lulc_converted_%d.tif' % step_index)
+            '%s_%d.tif' % (base_name, step_index))
         raster_utils.new_raster_from_base_uri(
             parameters['lulc_filename'], output_lulc_uri, 'GTiff', lulc_nodata,
             gdal.GDT_Int32)
@@ -158,10 +170,9 @@ def step_land_change(parameters):
     return output_lulc_list
 
     
-def run_sediment_analysis(parameters, land_cover_uri_list):
-    sed_export_values = []
+def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
     sed_export_table_uri = os.path.join(
-        parameters['output_file_directory'], 'sed_export_table.csv')
+        parameters['output_file_directory'], summary_table_uri)
     sed_export_table = open(sed_export_table_uri, 'w')
     sed_export_table.write('step,value\n')
     for index, lulc_uri in enumerate(land_cover_uri_list):
@@ -190,6 +201,8 @@ def run_sediment_analysis(parameters, land_cover_uri_list):
                 0, row_index, sed_export_ds.RasterXSize, 1)
             sed_export_total += numpy.sum(sed_array[(sed_array != nodata) & (~numpy.isnan(sed_array))])
         sed_export_table.write('%d,%f\n' % (index, sed_export_total))
+        
+        
 if __name__ == '__main__':
     PARAMETERS = {
         #'dem_filename': 'C:/Users/rich/Dropbox/unilever_data/mg_dem_90f/w001001.adf',
@@ -209,7 +222,7 @@ if __name__ == '__main__':
         'output_file_directory': 'output',
     }
     initialize_simulation(PARAMETERS)
-    LAND_COVER_URI_LIST = step_land_change(PARAMETERS)
-    run_sediment_analysis(PARAMETERS, LAND_COVER_URI_LIST)
-    
-    
+    for MODE in ["to_stream", "from_stream"]:
+        #make the filename the mode, thus mode is passed in twice
+        LAND_COVER_URI_LIST = step_land_change_from_streams(PARAMETERS, MODE, MODE)
+        run_sediment_analysis(PARAMETERS, LAND_COVER_URI_LIST, MODE + ".csv")
