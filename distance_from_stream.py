@@ -98,11 +98,13 @@ def initialize_simulation(parameters):
     save_obj(previous_run_file, parameters)
 
  
-def step_land_change_from_streams(parameters, base_name, mode):
+def step_land_change_from_streams(
+    parameters, base_name, mode, stream_buffer_width):
     """
         parameters - the context from the main function
         base_name - base of the filename
         mode - one of "to_stream" or "from_stream"
+        stream_buffer_width - the width in pixels 
         
         returns a list of land cover change from base to increasing expansion
     """
@@ -125,7 +127,6 @@ def step_land_change_from_streams(parameters, base_name, mode):
             mask = (lulc == convert_code)
             #invert the distance for sorting
             conversion_array[mask] = -distance[mask] * direction_factor
-    
         return conversion_array
     
     print 'building the prioritization from stream raster'
@@ -147,6 +148,10 @@ def step_land_change_from_streams(parameters, base_name, mode):
         converted_pixels = 0
         if step_index != 0:
             for value, flat_index, _ in priority_pixels:
+            
+                if (value * direction_factor) < stream_buffer_width:
+                    continue
+            
                 if value == -conversion_nodata:
                     print 'all pixels converted, breaking loop'
                     break
@@ -222,7 +227,11 @@ if __name__ == '__main__':
         'output_file_directory': 'output',
     }
     initialize_simulation(PARAMETERS)
-    for MODE in ["to_stream", "from_stream"]:
+    for MODE, FILENAME, BUFFER in [("to_stream", "to_stream", 0),
+        ("from_stream", "from_stream", 0),
+        ("from_stream", "from_stream_with_buffer_1", 1),
+        ("from_stream", "from_stream_with_buffer_3", 3),
+        ("from_stream", "from_stream_with_buffer_9", 9)]:
         #make the filename the mode, thus mode is passed in twice
-        LAND_COVER_URI_LIST = step_land_change_from_streams(PARAMETERS, MODE, MODE)
-        run_sediment_analysis(PARAMETERS, LAND_COVER_URI_LIST, MODE + ".csv")
+        LAND_COVER_URI_LIST = step_land_change_from_streams(PARAMETERS, FILENAME, MODE, BUFFER)
+        run_sediment_analysis(PARAMETERS, LAND_COVER_URI_LIST, FILENAME + ".csv")
