@@ -97,13 +97,23 @@ def initialize_simulation(parameters):
         
     save_obj(previous_run_file, parameters)
 
+
+def step_land_change(
+    parameters, base_name, mode, stream_buffer_width):
+    
+    if base_name in ['to_stream', 'from_stream']:
+        return step_land_change_streams(
+            parameters, base_name, mode, stream_buffer_width)
+    elif base_name in ['core', 'edge']:
+        return step_land_change_from_streams(
+            parameters, base_name, mode, stream_buffer_width)
  
-def step_land_change_from_streams(
+def step_land_change_streams(
     parameters, base_name, mode, stream_buffer_width):
     """
         parameters - the context from the main function
         base_name - base of the filename
-        mode - one of "to_stream" or "from_stream"
+        mode - one of "to_stream" or "from_stream",
         stream_buffer_width - the width in pixels 
         
         returns a list of land cover change from base to increasing expansion
