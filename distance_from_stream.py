@@ -51,6 +51,9 @@ def initialize_simulation(parameters):
         else:
             parameters['distance_from_stream_filename'] = (
                 previous_parameters['distance_from_stream_filename'])
+            parameters['distance_from_forest_edge_filename'] = (
+                previous_parameters['distance_from_forest_edge_filename'])
+                
     
     if 'distance_from_stream_filename' not in parameters:
         parameters['flow_direction_filename'] = os.path.join(
@@ -59,8 +62,12 @@ def initialize_simulation(parameters):
             parameters['temporary_file_directory'], 'flow_accumulation.tif')
         parameters['stream_uri'] = os.path.join(
             parameters['temporary_file_directory'], 'streams.tif')
+        parameters['forest_uri'] = os.path.join(
+            parameters['temporary_file_directory'], 'forest.tif')
         parameters['distance_from_stream_filename'] = os.path.join(
             parameters['temporary_file_directory'], 'distance_from_stream.tif')
+        parameters['distance_from_forest_edge_filename'] = os.path.join(
+            parameters['temporary_file_directory'], 'distance_from_forest_edge.tif')
         
         print 'resolving filling pits'
         dem_pit_filled_uri = os.path.join(
@@ -92,6 +99,33 @@ def initialize_simulation(parameters):
         raster_utils.distance_transform_edt(
             parameters['stream_uri'],
             parameters['distance_from_stream_filename'])
+            
+        
+        forest_pixel_size = raster_utils.get_cell_size_from_uri(
+            parameters['lulc_filename'])
+        lulc_nodata = raster_utils.get_nodata_from_uri(parameters['lulc_filename'])
+        
+        forest_nodata = 255
+        def classify_forest(lulc):
+            forest_mask = numpy.empty(lulc.shape)
+            forest_mask[:] = 1
+            for lulc_code in parameters['convert_from_lulc_codes']:
+                lulc_mask = (lulc == lulc_code)
+                forest_mask[lulc_mask] = 0
+            return numpy.where(lulc == lulc_nodata, forest_nodata, forest_mask)
+        
+        raster_utils.vectorize_datasets(
+            [parameters['lulc_filename']],
+            classify_forest, parameters['forest_uri'], gdal.GDT_Byte,
+            forest_nodata, forest_pixel_size, 'intersection',
+            dataset_to_align_index=0, vectorize_op=False)
+        
+        
+        print 'calculate distance from forest'
+        raster_utils.distance_transform_edt(
+            parameters['forest_uri'],
+            parameters['distance_from_forest_edge_filename'])
+        
     else:
         print 'streams already calculated, use those'
         
@@ -105,9 +139,79 @@ def step_land_change(
         return step_land_change_streams(
             parameters, base_name, mode, stream_buffer_width)
     elif base_name in ['core', 'edge']:
-        return step_land_change_from_streams(
+        return step_land_change_forest(
             parameters, base_name, mode, stream_buffer_width)
- 
+
+            
+def step_land_change_forest(
+    parameters, base_name, mode, stream_buffer_width):
+    
+    if mode == "core":
+        direction_factor = -1
+    elif mode == "edge":
+        direction_factor = 1
+    conversion_priority_filename = os.path.join(
+        parameters['temporary_file_directory'], 'conversion_priority.tif')
+    conversion_nodata = direction_factor * 9999
+    conversion_pixel_size = raster_utils.get_cell_size_from_uri(
+        parameters['lulc_filename'])
+    lulc_nodata = raster_utils.get_nodata_from_uri(parameters['lulc_filename'])
+        
+    def valid_distance(distance, lulc):
+        conversion_array = numpy.empty(distance.shape, dtype=numpy.float32)
+        conversion_array[:] = conversion_nodata
+        for convert_code in parameters['convert_from_lulc_codes']:
+            mask = (lulc == convert_code)
+            #invert the distance for sorting
+            conversion_array[mask] = -distance[mask] * direction_factor
+        return conversion_array
+    
+    print 'building the prioritization from stream raster'
+    raster_utils.vectorize_datasets(
+        [parameters['distance_from_forest_edge_filename'], parameters['lulc_filename']],
+        valid_distance, conversion_priority_filename, gdal.GDT_Float32,
+        conversion_nodata, conversion_pixel_size, 'intersection',
+        dataset_to_align_index=0, vectorize_op=False)
+
+    #build iterator
+    priority_pixels = disk_sort.sort_to_disk(conversion_priority_filename, 0)
+    lulc_ds = gdal.Open(parameters['lulc_filename'])
+    lulc_band = lulc_ds.GetRasterBand(1)
+    lulc_array = lulc_band.ReadAsArray()
+    output_lulc_list = []
+    for step_index in range(parameters['number_of_steps']):
+        print 'making lulc %d' % step_index
+
+        converted_pixels = 0
+        if step_index != 0:
+            for value, flat_index, _ in priority_pixels:
+            
+                if value == -conversion_nodata:
+                    print 'all pixels converted, breaking loop'
+                    break
+                numpy.reshape(lulc_array, -1)[flat_index] = (
+                    parameters['convert_to_lulc_code'])
+                converted_pixels += 1
+                if converted_pixels >= parameters['pixels_per_step_to_convert']:
+                    break
+        
+        if converted_pixels == 0 and step_index != 0:
+            print 'everything converted already, breaking loop'
+            break
+        
+        print 'saving lulc %d' % step_index
+        output_lulc_uri = os.path.join(
+            parameters['temporary_file_directory'],
+            '%s_%d.tif' % (base_name, step_index))
+        raster_utils.new_raster_from_base_uri(
+            parameters['lulc_filename'], output_lulc_uri, 'GTiff', lulc_nodata,
+            gdal.GDT_Int32)
+        output_lulc_ds = gdal.Open(output_lulc_uri, gdal.GA_Update)
+        output_lulc_band = output_lulc_ds.GetRasterBand(1)
+        output_lulc_band.WriteArray(lulc_array)
+        output_lulc_list.append(output_lulc_uri)
+    return output_lulc_list
+
 def step_land_change_streams(
     parameters, base_name, mode, stream_buffer_width):
     """
@@ -235,19 +339,22 @@ if __name__ == '__main__':
         'flow_accumulation_threshold_for_streams': 1000,
         'convert_from_lulc_codes': range(49, 67) + [95, 98], #read from biophysical table
         'convert_to_lulc_code':82, #this is 'field crop'
-        'pixels_per_step_to_convert': 50000,
-        'number_of_steps': 20,
+        'pixels_per_step_to_convert': 100000,
+        'number_of_steps': 7,
         'temporary_file_directory': 'temp',
         'output_file_directory': 'output',
     }
     initialize_simulation(PARAMETERS)
     for MODE, FILENAME, BUFFER in [
+        ("core", "core", 0),
+        ("edge", "edge", 0),
         ("to_stream", "to_stream", 0),
         ("from_stream", "from_stream", 0),
-        ("from_stream", "from_stream_with_buffer_1", 1),
-        ("from_stream", "from_stream_with_buffer_2", 2),
-        ("from_stream", "from_stream_with_buffer_3", 3),
-        ("from_stream", "from_stream_with_buffer_9", 9)]:
+        #("from_stream", "from_stream_with_buffer_1", 1),
+        #("from_stream", "from_stream_with_buffer_2", 2),
+        #("from_stream", "from_stream_with_buffer_3", 3),
+        #("from_stream", "from_stream_with_buffer_9", 9)
+        ]:
         #make the filename the mode, thus mode is passed in twice
-        LAND_COVER_URI_LIST = step_land_change_from_streams(PARAMETERS, FILENAME, MODE, BUFFER)
+        LAND_COVER_URI_LIST = step_land_change(PARAMETERS, FILENAME, MODE, BUFFER)
         run_sediment_analysis(PARAMETERS, LAND_COVER_URI_LIST, FILENAME + ".csv")
