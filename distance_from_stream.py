@@ -35,8 +35,8 @@ def initialize_simulation(parameters):
                     parameters['output_file_directory']]:
         if not os.path.exists(dirname):
             os.makedirs(dirname)
-    parameters['dem_hash'] = hashfile(parameters['dem_filename'])
-    parameters['lulc_hash'] = hashfile(parameters['lulc_filename'])
+    parameters['dem_hash'] = hashfile(parameters['dem_uri'])
+    parameters['lulc_hash'] = hashfile(parameters['landuse_uri'])
     
     previous_run_file = os.path.join(
         parameters['temporary_file_directory'], 'previous_run.obj')
@@ -44,8 +44,8 @@ def initialize_simulation(parameters):
         previous_parameters = load_obj(previous_run_file)
         
         for parameter in [
-                'dem_filename', 'lulc_filename', 'dem_hash', 'lulc_hash', 
-                'flow_accumulation_threshold_for_streams']:
+                'dem_uri', 'landuse_uri', 'dem_hash', 'lulc_hash', 
+                'threshold_flow_accumulation']:
             if previous_parameters[parameter] != parameters[parameter]:
                 break
         else:
@@ -72,7 +72,7 @@ def initialize_simulation(parameters):
         print 'resolving filling pits'
         dem_pit_filled_uri = os.path.join(
             parameters['temporary_file_directory'], 'pit_filled_dem.tif')
-        routing_utils.fill_pits(parameters['dem_filename'], dem_pit_filled_uri)
+        routing_utils.fill_pits(parameters['dem_uri'], dem_pit_filled_uri)
         
         print 'resolving plateaus'
         dem_plateau_resolved_uri = os.path.join(
@@ -92,7 +92,7 @@ def initialize_simulation(parameters):
         print 'calculate stream threshold'
         routing_utils.stream_threshold(
             parameters['flow_accumulation_filename'], 
-            parameters['flow_accumulation_threshold_for_streams'],
+            parameters['threshold_flow_accumulation'],
             parameters['stream_uri'])
             
         print 'calculate distance from streams'
@@ -102,8 +102,8 @@ def initialize_simulation(parameters):
             
         
         forest_pixel_size = raster_utils.get_cell_size_from_uri(
-            parameters['lulc_filename'])
-        lulc_nodata = raster_utils.get_nodata_from_uri(parameters['lulc_filename'])
+            parameters['landuse_uri'])
+        lulc_nodata = raster_utils.get_nodata_from_uri(parameters['landuse_uri'])
         
         forest_nodata = 255
         def classify_forest(lulc):
@@ -115,7 +115,7 @@ def initialize_simulation(parameters):
             return numpy.where(lulc == lulc_nodata, forest_nodata, forest_mask)
         
         raster_utils.vectorize_datasets(
-            [parameters['lulc_filename']],
+            [parameters['landuse_uri']],
             classify_forest, parameters['forest_uri'], gdal.GDT_Byte,
             forest_nodata, forest_pixel_size, 'intersection',
             dataset_to_align_index=0, vectorize_op=False)
@@ -154,8 +154,8 @@ def step_land_change_forest(
         parameters['temporary_file_directory'], 'conversion_priority.tif')
     conversion_nodata = direction_factor * 9999
     conversion_pixel_size = raster_utils.get_cell_size_from_uri(
-        parameters['lulc_filename'])
-    lulc_nodata = raster_utils.get_nodata_from_uri(parameters['lulc_filename'])
+        parameters['landuse_uri'])
+    lulc_nodata = raster_utils.get_nodata_from_uri(parameters['landuse_uri'])
         
     def valid_distance(distance, lulc):
         conversion_array = numpy.empty(distance.shape, dtype=numpy.float32)
@@ -168,14 +168,14 @@ def step_land_change_forest(
     
     print 'building the prioritization from stream raster'
     raster_utils.vectorize_datasets(
-        [parameters['distance_from_forest_edge_filename'], parameters['lulc_filename']],
+        [parameters['distance_from_forest_edge_filename'], parameters['landuse_uri']],
         valid_distance, conversion_priority_filename, gdal.GDT_Float32,
         conversion_nodata, conversion_pixel_size, 'intersection',
         dataset_to_align_index=0, vectorize_op=False)
 
     #build iterator
     priority_pixels = disk_sort.sort_to_disk(conversion_priority_filename, 0)
-    lulc_ds = gdal.Open(parameters['lulc_filename'])
+    lulc_ds = gdal.Open(parameters['landuse_uri'])
     lulc_band = lulc_ds.GetRasterBand(1)
     lulc_array = lulc_band.ReadAsArray()
     output_lulc_list = []
@@ -204,7 +204,7 @@ def step_land_change_forest(
             parameters['temporary_file_directory'],
             '%s_%d.tif' % (base_name, step_index))
         raster_utils.new_raster_from_base_uri(
-            parameters['lulc_filename'], output_lulc_uri, 'GTiff', lulc_nodata,
+            parameters['landuse_uri'], output_lulc_uri, 'GTiff', lulc_nodata,
             gdal.GDT_Int32)
         output_lulc_ds = gdal.Open(output_lulc_uri, gdal.GA_Update)
         output_lulc_band = output_lulc_ds.GetRasterBand(1)
@@ -231,8 +231,8 @@ def step_land_change_streams(
         parameters['temporary_file_directory'], 'conversion_priority.tif')
     conversion_nodata = direction_factor * 9999
     conversion_pixel_size = raster_utils.get_cell_size_from_uri(
-        parameters['lulc_filename'])
-    lulc_nodata = raster_utils.get_nodata_from_uri(parameters['lulc_filename'])
+        parameters['landuse_uri'])
+    lulc_nodata = raster_utils.get_nodata_from_uri(parameters['landuse_uri'])
         
     def valid_distance(distance, lulc):
         conversion_array = numpy.empty(distance.shape, dtype=numpy.float32)
@@ -245,14 +245,14 @@ def step_land_change_streams(
     
     print 'building the prioritization from stream raster'
     raster_utils.vectorize_datasets(
-        [parameters['distance_from_stream_filename'], parameters['lulc_filename']],
+        [parameters['distance_from_stream_filename'], parameters['landuse_uri']],
         valid_distance, conversion_priority_filename, gdal.GDT_Float32,
         conversion_nodata, conversion_pixel_size, 'intersection',
         dataset_to_align_index=0, vectorize_op=False)
 
     #build iterator
     priority_pixels = disk_sort.sort_to_disk(conversion_priority_filename, 0)
-    lulc_ds = gdal.Open(parameters['lulc_filename'])
+    lulc_ds = gdal.Open(parameters['landuse_uri'])
     lulc_band = lulc_ds.GetRasterBand(1)
     lulc_array = lulc_band.ReadAsArray()
     output_lulc_list = []
@@ -284,7 +284,7 @@ def step_land_change_streams(
             parameters['temporary_file_directory'],
             '%s_%d.tif' % (base_name, step_index))
         raster_utils.new_raster_from_base_uri(
-            parameters['lulc_filename'], output_lulc_uri, 'GTiff', lulc_nodata,
+            parameters['landuse_uri'], output_lulc_uri, 'GTiff', lulc_nodata,
             gdal.GDT_Int32)
         output_lulc_ds = gdal.Open(output_lulc_uri, gdal.GA_Update)
         output_lulc_band = output_lulc_ds.GetRasterBand(1)
@@ -302,13 +302,13 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
         sdr_args = {
             'workspace_dir': parameters['output_file_directory'],
             'suffix': str(index),
-            'dem_uri': parameters['dem_filename'],
+            'dem_uri': parameters['dem_uri'],
             'erosivity_uri': parameters['erosivity_uri'],
             'erodibility_uri': parameters['erodibility_uri'],
             'landuse_uri': lulc_uri,
             'watersheds_uri': parameters['watersheds_uri'],
             'biophysical_table_uri': parameters['biophysical_table_uri'],
-            'threshold_flow_accumulation': parameters['flow_accumulation_threshold_for_streams'],
+            'threshold_flow_accumulation': parameters['threshold_flow_accumulation'],
             'k_param': 2,
             'sdr_max': 0.8,
             'ic_0_param': 0.5,
@@ -327,34 +327,47 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
         
         
 if __name__ == '__main__':
+    DROPBOX_FOLDER = 'C:/Users/rich/Dropbox/'
+    OUTPUT_FOLDER = u'C:/Users/rich/Documents/unilever_outputs'
+    
     PARAMETERS = {
-        #'dem_filename': 'C:/Users/rich/Dropbox/unilever_data/mg_dem_90f/w001001.adf',
-        #'lulc_filename': 'C:/Users/rich/Dropbox/unilever_data/lulc_2008.tif',
-        'dem_filename': "C:/InVEST_dev39_3_0_1 [6d541e569a05]_x86/Base_Data/Freshwater/dem/w001001.adf",
-        'lulc_filename': 'C:/InVEST_dev39_3_0_1 [6d541e569a05]_x86/Base_Data/Terrestrial/landuse_90/w001001.adf',
-        'erosivity_uri': "C:/InVEST_dev39_3_0_1 [6d541e569a05]_x86/Base_Data/Freshwater/erosivity/w001001.adf",
-        'erodibility_uri': "C:/InVEST_dev39_3_0_1 [6d541e569a05]_x86/Base_Data/Freshwater/erodibility/w001001.adf",
-        'watersheds_uri': "C:/InVEST_dev39_3_0_1 [6d541e569a05]_x86/Base_Data/Freshwater/watersheds.shp",
-        'biophysical_table_uri': "C:/InVEST_dev39_3_0_1 [6d541e569a05]_x86/Base_Data/Freshwater/biophysical_table.csv",
-        'flow_accumulation_threshold_for_streams': 1000,
-        'convert_from_lulc_codes': range(49, 67) + [95, 98], #read from biophysical table
-        'convert_to_lulc_code':82, #this is 'field crop'
+        'convert_from_lulc_codes': range(1, 5), #read from biophysical table
+        'convert_to_lulc_code':12, #this is 'field crop'
         'pixels_per_step_to_convert': 100000,
-        'number_of_steps': 7,
-        'temporary_file_directory': 'temp',
-        'output_file_directory': 'output',
+        'number_of_steps': 20,
+        'temporary_file_directory': os.path.join(OUTPUT_FOLDER, 'temp'),
+        'output_file_directory': OUTPUT_FOLDER,
     }
-    initialize_simulation(PARAMETERS)
+    
+    mg_args = {
+        u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/biophysical_coeffs_Brazil_Unilever.csv"),
+        u'dem_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/DEM_SRTM_MT_filled.tif"),
+        u'erodibility_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/erodibility_MT.tif"),
+        u'erosivity_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/erosivity_MT.tif"),
+        u'ic_0_param': u'0.5',
+        u'k_param': u'2',
+        u'landuse_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/LULC_MCD12Q1_2012_MT.tif"),
+        u'sdr_max': u'0.8',
+        u'threshold_flow_accumulation': 1000,
+        u'watersheds_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/Mato_Grosso.shp"),
+        u'workspace_dir': os.path.join(OUTPUT_FOLDER, u'Mato_Grosso_global/'),
+        u'suffix': 'mato_grosso',
+    }
+    mg_args.update(PARAMETERS)
+    
+    initialize_simulation(mg_args)
+    print 'preparing sdr'
+    mg_args['_prepare'] = invest_natcap.sdr.sdr._prepare(**mg_args)
     for MODE, FILENAME, BUFFER in [
-        ("core", "core", 0),
-        ("edge", "edge", 0),
+        #("core", "core", 0),
+        #("edge", "edge", 0),
         ("to_stream", "to_stream", 0),
         ("from_stream", "from_stream", 0),
-        #("from_stream", "from_stream_with_buffer_1", 1),
-        #("from_stream", "from_stream_with_buffer_2", 2),
-        #("from_stream", "from_stream_with_buffer_3", 3),
-        #("from_stream", "from_stream_with_buffer_9", 9)
+        ("from_stream", "from_stream_with_buffer_1", 1),
+        ("from_stream", "from_stream_with_buffer_2", 2),
+        ("from_stream", "from_stream_with_buffer_3", 3),
+        ("from_stream", "from_stream_with_buffer_9", 9)
         ]:
         #make the filename the mode, thus mode is passed in twice
-        LAND_COVER_URI_LIST = step_land_change(PARAMETERS, FILENAME, MODE, BUFFER)
-        run_sediment_analysis(PARAMETERS, LAND_COVER_URI_LIST, FILENAME + ".csv")
+        LAND_COVER_URI_LIST = step_land_change(mg_args, FILENAME, MODE, BUFFER)
+        run_sediment_analysis(mg_args, LAND_COVER_URI_LIST, FILENAME + ".csv")
