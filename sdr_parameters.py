@@ -13,7 +13,7 @@ OUTPUT_FOLDER = u'C:/Users/rich/Documents/unilever_outputs'
 
 iowa_args = {
     u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/biophysical_coeffs_Iowa_Unilever_national.csv"),
-    u'dem_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/DEM_SRTM_Iowa_HUC8.tif"),
+    u'dem_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/DEM_SRTM_Iowa_HUC8_v2.tif"),
     u'erodibility_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/erodibility_STATSGO_Iowa_HUC8.tif"),
     u'erosivity_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/erosivity_Iowa_HUC8.tif"),
     u'ic_0_param': u'0.5',
@@ -42,7 +42,7 @@ mg_args = {
 }
 
 
-for args in [mg_args]:
+for args in [iowa_args]:
 
     print 'preparing sdr'
     args['_prepare'] = invest_natcap.sdr.sdr._prepare(**args)
