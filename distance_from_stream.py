@@ -355,19 +355,37 @@ if __name__ == '__main__':
     }
     mg_args.update(PARAMETERS)
     
-    initialize_simulation(mg_args)
-    print 'preparing sdr'
-    mg_args['_prepare'] = invest_natcap.sdr.sdr._prepare(**mg_args)
-    for MODE, FILENAME, BUFFER in [
-        #("core", "core", 0),
-        #("edge", "edge", 0),
-        ("to_stream", "to_stream", 0),
-        ("from_stream", "from_stream", 0),
-        ("from_stream", "from_stream_with_buffer_1", 1),
-        ("from_stream", "from_stream_with_buffer_2", 2),
-        ("from_stream", "from_stream_with_buffer_3", 3),
-        ("from_stream", "from_stream_with_buffer_9", 9)
-        ]:
-        #make the filename the mode, thus mode is passed in twice
-        LAND_COVER_URI_LIST = step_land_change(mg_args, FILENAME, MODE, BUFFER)
-        run_sediment_analysis(mg_args, LAND_COVER_URI_LIST, FILENAME + ".csv")
+    iowa_args = {
+        u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/biophysical_coeffs_Iowa_Unilever_national.csv"),
+        u'dem_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/DEM_SRTM_Iowa_HUC8_v2.tif"),
+        u'erodibility_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/erodibility_STATSGO_Iowa_HUC8.tif"),
+        u'erosivity_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/erosivity_Iowa_HUC8.tif"),
+        u'ic_0_param': u'0.5',
+        u'k_param': u'2',
+        u'landuse_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/LULC_NLCD_2006_Iowa_HUC8.tif"),
+        u'sdr_max': u'0.8',
+        u'threshold_flow_accumulation': u'1000',
+        u'watersheds_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/HUC8_Iowa_intersect_dissolve.shp"),
+        u'workspace_dir': os.path.join(OUTPUT_FOLDER, u'Iowa_national'),
+        u'suffix': 'iowa',
+    }
+    iowa_args.update(PARAMETERS)
+    
+    for args in [iowa_args]:
+    
+        initialize_simulation(args)
+        print 'preparing sdr'
+        args['_prepare'] = invest_natcap.sdr.sdr._prepare(**args)
+        for MODE, FILENAME, BUFFER in [
+            #("core", "core", 0),
+            #("edge", "edge", 0),
+            ("to_stream", "to_stream", 0),
+            ("from_stream", "from_stream", 0),
+            ("from_stream", "from_stream_with_buffer_1", 1),
+            ("from_stream", "from_stream_with_buffer_2", 2),
+            ("from_stream", "from_stream_with_buffer_3", 3),
+            ("from_stream", "from_stream_with_buffer_9", 9)
+            ]:
+            #make the filename the mode, thus mode is passed in twice
+            LAND_COVER_URI_LIST = step_land_change(args, FILENAME, MODE, BUFFER)
+            run_sediment_analysis(args, LAND_COVER_URI_LIST, FILENAME + ".csv")
