@@ -1,15 +1,42 @@
 import os
 import hashlib
 import pickle
+import threading
 
 import gdal
 import numpy
+import pympler.tracker
 
 from invest_natcap.routing import routing_utils
 from invest_natcap import raster_utils
 from invest_natcap.scenario_generator import disk_sort
 import invest_natcap.sdr.sdr
 
+
+class PerpetualTimer():
+   
+    def __init__(self, time_to_wait, callback):
+       self.time_to_wait = time_to_wait
+       self.callback = callback
+       self.thread = threading.Timer(self.time_to_wait, self.process_callback)
+
+    def process_callback(self):
+       self.callback()
+       self.thread = threading.Timer(self.time_to_wait, self.process_callback)
+       self.thread.start()
+
+    def start(self):
+       self.thread.start()
+
+    def cancel(self):
+       self.thread.cancel()
+
+
+def memory_report():
+    summary_tracker = pympler.tracker.SummaryTracker()
+    summary_tracker.print_diff() 
+    
+      
 def hashfile(filename, blocksize=65536):
     afile = open(filename, 'rb')
     buf = afile.read(blocksize)
@@ -135,13 +162,14 @@ def initialize_simulation(parameters):
 def step_land_change(
     parameters, base_name, mode, stream_buffer_width):
     
-    if base_name in ['to_stream', 'from_stream']:
+    if mode in ['to_stream', 'from_stream']:
         return step_land_change_streams(
             parameters, base_name, mode, stream_buffer_width)
-    elif base_name in ['core', 'edge']:
+    elif mode in ['core', 'edge']:
         return step_land_change_forest(
             parameters, base_name, mode, stream_buffer_width)
-
+    else:
+        raise Exception("Unknown mode %s" % mode)
             
 def step_land_change_forest(
     parameters, base_name, mode, stream_buffer_width):
@@ -324,18 +352,28 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
                 0, row_index, sed_export_ds.RasterXSize, 1)
             sed_export_total += numpy.sum(sed_array[(sed_array != nodata) & (~numpy.isnan(sed_array))])
         sed_export_table.write('%d,%f\n' % (index, sed_export_total))
-        
+        memory_report()
         
 if __name__ == '__main__':
-    DROPBOX_FOLDER = 'C:/Users/rich/Dropbox/'
-    OUTPUT_FOLDER = u'C:/Users/rich/Documents/unilever_outputs'
+    DROPBOX_FOLDER = u'C:/Users/rich/Documents/Dropbox/'
+    OUTPUT_FOLDER = u'C:/Users/rich/Documents/unilever_iowa_outputs'
+    TEMPORARY_FOLDER = os.path.join(OUTPUT_FOLDER, 'temp')
+
+    for tmp_variable in ['TMP', 'TEMP', 'TMPDIR']:
+
+        if tmp_variable in os.environ:
+            print 'Updating os.environ["%s"]=%s to %s' % (tmp_variable, os.environ[tmp_variable], TEMPORARY_FOLDER)
+        else:
+            print 'Setting os.environ["%s"]=%s' % (tmp_variable, TEMPORARY_FOLDER)
+
+        os.environ[tmp_variable] = TEMPORARY_FOLDER
     
     PARAMETERS = {
         'convert_from_lulc_codes': range(1, 5), #read from biophysical table
         'convert_to_lulc_code':12, #this is 'field crop'
         'pixels_per_step_to_convert': 100000,
         'number_of_steps': 20,
-        'temporary_file_directory': os.path.join(OUTPUT_FOLDER, 'temp'),
+        'temporary_file_directory': TEMPORARY_FOLDER,
         'output_file_directory': OUTPUT_FOLDER,
     }
     
@@ -355,9 +393,9 @@ if __name__ == '__main__':
     }
     mg_args.update(PARAMETERS)
     
-    iowa_args = {
+    iowa_national_args = {
         u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/biophysical_coeffs_Iowa_Unilever_national.csv"),
-        u'dem_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/DEM_SRTM_Iowa_HUC8_v2.tif"),
+        u'dem_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/DEM_SRTM_Iowa_HUC8_v2_uncompressed_striped.tif"),
         u'erodibility_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/erodibility_STATSGO_Iowa_HUC8.tif"),
         u'erosivity_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/erosivity_Iowa_HUC8.tif"),
         u'ic_0_param': u'0.5',
@@ -367,18 +405,37 @@ if __name__ == '__main__':
         u'threshold_flow_accumulation': u'1000',
         u'watersheds_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/HUC8_Iowa_intersect_dissolve.shp"),
         u'workspace_dir': os.path.join(OUTPUT_FOLDER, u'Iowa_national'),
-        u'suffix': 'iowa',
+        u'suffix': 'iowa_local',
     }
-    iowa_args.update(PARAMETERS)
+    iowa_national_args.update(PARAMETERS)
     
-    for args in [iowa_args]:
+    iowa_global_args = {
+        u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_global/biophysical_coeffs_Iowa_Unilever_global.csv"),
+        u'dem_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/DEM_SRTM_Iowa_HUC8_v2_uncompressed_striped.tif"),
+        u'erodibility_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_global/erodibility_HWSD_Iowa_HUC8.tif"),
+        u'erosivity_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/erosivity_Iowa_HUC8.tif"),
+        u'ic_0_param': u'0.5',
+        u'k_param': u'2',
+        u'landuse_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_global/LULC_MCD12Q1_2006_Iowa_HUC8.tif"),
+        u'sdr_max': u'0.8',
+        u'threshold_flow_accumulation': u'1000',
+        u'watersheds_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/HUC8_Iowa_intersect_dissolve.shp"),
+        u'workspace_dir': os.path.join(OUTPUT_FOLDER, u'Iowa_global'),
+        u'suffix': 'iowa_global',
+    }
+    iowa_global_args.update(PARAMETERS)
+    
+    #summary_reporter = PerpetualTimer(1.0, memory_report)
+    #summary_reporter.start()
+    
+    for args, simulation in [(iowa_national_args, 'iowa_national_'), (iowa_global_args, 'iowa_global_'), (mg_args, 'mg_')]:
     
         initialize_simulation(args)
         print 'preparing sdr'
         args['_prepare'] = invest_natcap.sdr.sdr._prepare(**args)
         for MODE, FILENAME, BUFFER in [
-            #("core", "core", 0),
-            #("edge", "edge", 0),
+            ("core", "core", 0),
+            ("edge", "edge", 0),
             ("to_stream", "to_stream", 0),
             ("from_stream", "from_stream", 0),
             ("from_stream", "from_stream_with_buffer_1", 1),
@@ -387,5 +444,7 @@ if __name__ == '__main__':
             ("from_stream", "from_stream_with_buffer_9", 9)
             ]:
             #make the filename the mode, thus mode is passed in twice
-            LAND_COVER_URI_LIST = step_land_change(args, FILENAME, MODE, BUFFER)
-            run_sediment_analysis(args, LAND_COVER_URI_LIST, FILENAME + ".csv")
+            LAND_COVER_URI_LIST = step_land_change(args, simulation+FILENAME, MODE, BUFFER)
+            run_sediment_analysis(args, LAND_COVER_URI_LIST, simulation+FILENAME + ".csv")
+
+    #summary_reporter.cancel()
