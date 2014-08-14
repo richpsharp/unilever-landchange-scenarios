@@ -406,7 +406,7 @@ if __name__ == '__main__':
         u'erodibility_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/erodibility_STATSGO_Iowa_HUC8.tif"),
         u'erosivity_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/erosivity_Iowa_HUC8.tif"),
         u'ic_0_param': u'0.5',
-        u'k_param': u'2',cccc
+        u'k_param': u'2',
         u'landuse_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/LULC_NLCD_2006_Iowa_HUC8_uncompressed.tif"),
         u'sdr_max': u'0.8',
         u'threshold_flow_accumulation': u'1000',
