@@ -439,7 +439,7 @@ if __name__ == '__main__':
     #summary_reporter = PerpetualTimer(1.0, memory_report)
     #summary_reporter.start()
     
-    for args, simulation in [(iowa_national_args, 'iowa_national_'), (iowa_global_args, 'iowa_global_'), (mg_args, 'mg_')]:
+    for args, simulation in [(iowa_national_args, 'iowa_national_'), (iowa_global_args, 'iowa_global_')]:
     
         initialize_simulation(args)
         print 'preparing sdr'
@@ -449,10 +449,10 @@ if __name__ == '__main__':
             ("edge", "edge", 0),
             ("to_stream", "to_stream", 0),
             ("from_stream", "from_stream", 0),
-            ("from_stream", "from_stream_with_buffer_1", 1),
-            ("from_stream", "from_stream_with_buffer_2", 2),
-            ("from_stream", "from_stream_with_buffer_3", 3),
-            ("from_stream", "from_stream_with_buffer_9", 9)
+            #("from_stream", "from_stream_with_buffer_1", 1),
+            #("from_stream", "from_stream_with_buffer_2", 2),
+            #("from_stream", "from_stream_with_buffer_3", 3),
+            #("from_stream", "from_stream_with_buffer_9", 9)
             ]:
             #make the filename the mode, thus mode is passed in twice
             LAND_COVER_URI_LIST = step_land_change(args, simulation+FILENAME, MODE, BUFFER)
