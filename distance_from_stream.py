@@ -372,12 +372,15 @@ if __name__ == '__main__':
         'convert_from_lulc_codes': range(1, 5), #read from biophysical table
         'convert_to_lulc_code':12, #this is 'field crop'
         'pixels_per_step_to_convert': 100000,
-        'number_of_steps': 20,
+        
         'temporary_file_directory': TEMPORARY_FOLDER,
         'output_file_directory': OUTPUT_FOLDER,
     }
     
     mg_args = {
+        u'convert_from_lulc_codes': range(1, 5), #read from biophysical table
+        u'convert_to_lulc_code':12, #this is 'field crop'
+        u'pixels_per_step_to_convert': 100000,
         u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/biophysical_coeffs_Brazil_Unilever.csv"),
         u'dem_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/DEM_SRTM_MT_filled.tif"),
         u'erodibility_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/erodibility_MT.tif"),
@@ -394,13 +397,17 @@ if __name__ == '__main__':
     mg_args.update(PARAMETERS)
     
     iowa_national_args = {
+        u'convert_from_lulc_codes': [41, 42, 43, 90], #these are the forest types
+        u'convert_to_lulc_code':82, #this is 'cultivated crops'
+        u'pixels_per_step_to_convert': 2616659/20, #this is the number of forest pixels divided by number of steps
+        u'number_of_steps': 20,
         u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/biophysical_coeffs_Iowa_Unilever_national.csv"),
         u'dem_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/DEM_SRTM_Iowa_HUC8_v2_uncompressed_striped.tif"),
         u'erodibility_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/erodibility_STATSGO_Iowa_HUC8.tif"),
         u'erosivity_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/erosivity_Iowa_HUC8.tif"),
         u'ic_0_param': u'0.5',
-        u'k_param': u'2',
-        u'landuse_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/LULC_NLCD_2006_Iowa_HUC8.tif"),
+        u'k_param': u'2',cccc
+        u'landuse_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/LULC_NLCD_2006_Iowa_HUC8_uncompressed.tif"),
         u'sdr_max': u'0.8',
         u'threshold_flow_accumulation': u'1000',
         u'watersheds_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/HUC8_Iowa_intersect_dissolve.shp"),
@@ -410,6 +417,10 @@ if __name__ == '__main__':
     iowa_national_args.update(PARAMETERS)
     
     iowa_global_args = {
+        u'convert_from_lulc_codes': range(1, 5), #forest lulcs from biophysical table
+        u'convert_to_lulc_code':12, #this is 'field crop'
+        u'pixels_per_step_to_convert': 9772/20, #this is the number of forest pixels divided by number of steps
+        u'number_of_steps': 20,
         u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_global/biophysical_coeffs_Iowa_Unilever_global.csv"),
         u'dem_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/DEM_SRTM_Iowa_HUC8_v2_uncompressed_striped.tif"),
         u'erodibility_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_global/erodibility_HWSD_Iowa_HUC8.tif"),
