@@ -329,25 +329,22 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
         parameters['output_file_directory'], summary_table_uri)
     sed_export_table = open(sed_export_table_uri, 'w')
     sed_export_table.write('step,%s\n' % os.path.splitext(summary_table_uri)[0])
-
-    sdr_args = {
-        'workspace_dir': parameters['output_file_directory'],
-        'dem_uri': parameters['dem_uri'],
-        'erosivity_uri': parameters['erosivity_uri'],
-        'erodibility_uri': parameters['erodibility_uri'],
-        'watersheds_uri': parameters['watersheds_uri'],
-        'biophysical_table_uri': parameters['biophysical_table_uri'],
-        'threshold_flow_accumulation': parameters['threshold_flow_accumulation'],
-        'k_param': 2,
-        'sdr_max': 0.8,
-        'ic_0_param': 0.5,
-    }
-
-    sdr_args['_prepare'] = invest_natap.sdr.sdr._prepare(sdr_args)
     for index, lulc_uri in enumerate(land_cover_uri_list):
-        sdr_args['landuse_uri'] = lulc_uri
-        sdr_args['suffix'] = str(index)
-            
+        sdr_args = {
+            'workspace_dir': parameters['output_file_directory'],
+            'suffix': str(index),
+            'dem_uri': parameters['dem_uri'],
+            'erosivity_uri': parameters['erosivity_uri'],
+            'erodibility_uri': parameters['erodibility_uri'],
+            'landuse_uri': lulc_uri,
+            'watersheds_uri': parameters['watersheds_uri'],
+            'biophysical_table_uri': parameters['biophysical_table_uri'],
+            'threshold_flow_accumulation': parameters['threshold_flow_accumulation'],
+            'k_param': 2,
+            'sdr_max': 0.8,
+            'ic_0_param': 0.5,
+            '_prepare': parameters['_prepare'],
+        }
         invest_natcap.sdr.sdr.execute(sdr_args)
         sdr_export_uri = os.path.join(sdr_args['workspace_dir'], 'output', "sed_export_%d.tif" % index)
         sed_export_ds = gdal.Open(sdr_export_uri)
