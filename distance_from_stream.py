@@ -329,21 +329,25 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
         parameters['output_file_directory'], summary_table_uri)
     sed_export_table = open(sed_export_table_uri, 'w')
     sed_export_table.write('step,%s\n' % os.path.splitext(summary_table_uri)[0])
+
+    sdr_args = {
+        'workspace_dir': parameters['output_file_directory'],
+        'dem_uri': parameters['dem_uri'],
+        'erosivity_uri': parameters['erosivity_uri'],
+        'erodibility_uri': parameters['erodibility_uri'],
+        'watersheds_uri': parameters['watersheds_uri'],
+        'biophysical_table_uri': parameters['biophysical_table_uri'],
+        'threshold_flow_accumulation': parameters['threshold_flow_accumulation'],
+        'k_param': 2,
+        'sdr_max': 0.8,
+        'ic_0_param': 0.5,
+    }
+
+    sdr_args['_prepare'] = invest_natap.sdr.sdr._prepare(sdr_args)
     for index, lulc_uri in enumerate(land_cover_uri_list):
-        sdr_args = {
-            'workspace_dir': parameters['output_file_directory'],
-            'suffix': str(index),
-            'dem_uri': parameters['dem_uri'],
-            'erosivity_uri': parameters['erosivity_uri'],
-            'erodibility_uri': parameters['erodibility_uri'],
-            'landuse_uri': lulc_uri,
-            'watersheds_uri': parameters['watersheds_uri'],
-            'biophysical_table_uri': parameters['biophysical_table_uri'],
-            'threshold_flow_accumulation': parameters['threshold_flow_accumulation'],
-            'k_param': 2,
-            'sdr_max': 0.8,
-            'ic_0_param': 0.5,
-        }
+        sdr_args['landuse_uri'] = lulc_uri
+        sdr_args['suffix'] = str(index)
+            
         invest_natcap.sdr.sdr.execute(sdr_args)
         sdr_export_uri = os.path.join(sdr_args['workspace_dir'], 'output', "sed_export_%d.tif" % index)
         sed_export_ds = gdal.Open(sdr_export_uri)
@@ -482,21 +486,22 @@ if __name__ == '__main__':
     #(willamette_local_args, 'willamette_local_'), (willamette_global_args, 'willamette_global_'), 
     for args, simulation in [
         (iowa_global_args, 'iowa_global_'),
-        #(iowa_national_args, 'iowa_national_'),
+        (iowa_national_args, 'iowa_national_'),
+        (mg_args, 'mg_global'),
         ]:
     
         initialize_simulation(args)
         print 'preparing sdr'
         args['_prepare'] = invest_natcap.sdr.sdr._prepare(**args)
         for MODE, FILENAME, BUFFER in [
-            #("core", "core", 0),
-            #("edge", "edge", 0),
-            #("to_stream", "to_stream", 0),
-            #("from_stream", "from_stream", 0),
-            #("from_stream", "from_stream_with_buffer_1", 1),
-            #("from_stream", "from_stream_with_buffer_2", 2),
-            #("from_stream", "from_stream_with_buffer_3", 3),
-            #("from_stream", "from_stream_with_buffer_9", 9)
+            ("core", "core", 0),
+            ("edge", "edge", 0),
+            ("to_stream", "to_stream", 0),
+            ("from_stream", "from_stream", 0),
+            ("from_stream", "from_stream_with_buffer_1", 1),
+            ("from_stream", "from_stream_with_buffer_2", 2),
+            ("from_stream", "from_stream_with_buffer_3", 3),
+            ("from_stream", "from_stream_with_buffer_9", 9)
             ]:
             #make the filename the mode, thus mode is passed in twice
             LAND_COVER_URI_LIST = step_land_change(args, simulation+FILENAME, MODE, BUFFER)
