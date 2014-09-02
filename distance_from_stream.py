@@ -85,6 +85,8 @@ def initialize_simulation(parameters):
     if 'distance_from_stream_filename' not in parameters:
         parameters['flow_direction_filename'] = os.path.join(
             parameters['temporary_file_directory'], 'flow_direction.tif')
+        parameters['tiled_dem_uri'] = os.path.join(
+            parameters['temporary_file_directory'], 'tiled_dem.tif')
         parameters['flow_accumulation_filename'] = os.path.join(
             parameters['temporary_file_directory'], 'flow_accumulation.tif')
         parameters['stream_uri'] = os.path.join(
@@ -96,10 +98,12 @@ def initialize_simulation(parameters):
         parameters['distance_from_forest_edge_filename'] = os.path.join(
             parameters['temporary_file_directory'], 'distance_from_forest_edge.tif')
         
+
+        raster_utils.tile_dataset_uri(parameters['dem_uri'], parameters['tiled_dem_uri'], 256)
         print 'resolving filling pits'
         dem_pit_filled_uri = os.path.join(
             parameters['temporary_file_directory'], 'pit_filled_dem.tif')
-        routing_utils.fill_pits(parameters['dem_uri'], dem_pit_filled_uri)
+        routing_utils.fill_pits(parameters['tiled_dem_uri'], dem_pit_filled_uri)
         
         print 'resolving plateaus'
         dem_plateau_resolved_uri = os.path.join(
@@ -146,7 +150,6 @@ def initialize_simulation(parameters):
             classify_forest, parameters['forest_uri'], gdal.GDT_Byte,
             forest_nodata, forest_pixel_size, 'intersection',
             dataset_to_align_index=0, vectorize_op=False)
-        
         
         print 'calculate distance from forest'
         raster_utils.distance_transform_edt(
@@ -476,17 +479,20 @@ if __name__ == '__main__':
     
     #summary_reporter = PerpetualTimer(1.0, memory_report)
     #summary_reporter.start()
-    
-    for args, simulation in [(willamette_local_args, 'willamette_local_'), (willamette_global_args, 'willamette_global_'), (iowa_global_args, 'iowa_global_'), (iowa_national_args, 'iowa_national_'),]:
+    #(willamette_local_args, 'willamette_local_'), (willamette_global_args, 'willamette_global_'), 
+    for args, simulation in [
+        (iowa_global_args, 'iowa_global_'),
+        #(iowa_national_args, 'iowa_national_'),
+        ]:
     
         initialize_simulation(args)
         print 'preparing sdr'
         args['_prepare'] = invest_natcap.sdr.sdr._prepare(**args)
         for MODE, FILENAME, BUFFER in [
-            ("core", "core", 0),
-            ("edge", "edge", 0),
-            ("to_stream", "to_stream", 0),
-            ("from_stream", "from_stream", 0),
+            #("core", "core", 0),
+            #("edge", "edge", 0),
+            #("to_stream", "to_stream", 0),
+            #("from_stream", "from_stream", 0),
             #("from_stream", "from_stream_with_buffer_1", 1),
             #("from_stream", "from_stream_with_buffer_2", 2),
             #("from_stream", "from_stream_with_buffer_3", 3),
