@@ -356,6 +356,19 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
                 0, row_index, sed_export_ds.RasterXSize, 1)
             sed_export_total += numpy.sum(sed_array[(sed_array != nodata) & (~numpy.isnan(sed_array))])
         sed_export_table.write('%d,%f\n' % (index, sed_export_total))
+        sed_export_table.flush()
+
+        sed_export_band = None
+        gdal.Dataset.__swig_destroy(sed_export_ds)
+        sed_expor_ds = None
+        #no need to keep output and intermediate directories
+        for directory in [os.path.join(sdr_args['workspace_dir'], 'output'), os.path.join(sdr_args['workspace_dir'], 'intermediate')]:
+            try:
+                shutils.rmtree(directory)
+            except OSError as e:
+                print "can't remove directory " + str(e)
+
+
         memory_report()
         
 if __name__ == '__main__':
