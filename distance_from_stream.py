@@ -1,6 +1,5 @@
 import os
 import hashlib
-import pickle
 import threading
 import shutil
 
@@ -38,129 +37,98 @@ def memory_report():
     summary_tracker.print_diff() 
     
       
-def hashfile(filename, blocksize=65536):
-    afile = open(filename, 'rb')
-    buf = afile.read(blocksize)
-    hasher = hashlib.sha256()
-    while len(buf) > 0:
-        hasher.update(buf)
-        buf = afile.read(blocksize)
-    return hasher.digest()
-
-
-def save_obj(filename, object):
-    with open(filename, 'wb') as f:
-        pickle.dump(object, f, pickle.HIGHEST_PROTOCOL)
-
-
-def load_obj(filename):
-    with open(filename, 'rb') as f:
-        return pickle.load(f)
-
 
 def initialize_simulation(parameters):
     for dirname in [parameters['temporary_file_directory'],
                     parameters['output_file_directory']]:
         if not os.path.exists(dirname):
             os.makedirs(dirname)
-    parameters['dem_hash'] = hashfile(parameters['dem_uri'])
-    parameters['lulc_hash'] = hashfile(parameters['landuse_uri'])
     
-    previous_run_file = os.path.join(
-        parameters['temporary_file_directory'], 'previous_run.obj')
-    if os.path.isfile(previous_run_file):
-        previous_parameters = load_obj(previous_run_file)
-        
-        for parameter in [
-                'dem_uri', 'landuse_uri', 'dem_hash', 'lulc_hash', 
-                'threshold_flow_accumulation']:
-            if previous_parameters[parameter] != parameters[parameter]:
-                break
-        else:
-            parameters['distance_from_stream_filename'] = (
-                previous_parameters['distance_from_stream_filename'])
-            parameters['distance_from_forest_edge_filename'] = (
-                previous_parameters['distance_from_forest_edge_filename'])
-                
+    parameters['flow_direction_filename'] = os.path.join(
+        parameters['temporary_file_directory'], 'flow_direction.tif')
+    parameters['tiled_dem_uri'] = os.path.join(
+        parameters['temporary_file_directory'], 'tiled_dem.tif')
+    parameters['flow_accumulation_filename'] = os.path.join(
+        parameters['temporary_file_directory'], 'flow_accumulation.tif')
+    parameters['stream_uri'] = os.path.join(
+        parameters['temporary_file_directory'], 'streams.tif')
+    parameters['non_forest_uri'] = os.path.join(
+        parameters['temporary_file_directory'], 'non_forest.tif')
+    parameters['distance_from_stream_filename'] = os.path.join(
+        parameters['temporary_file_directory'], 'distance_from_stream.tif')
+    parameters['distance_from_forest_edge_filename'] = os.path.join(
+        parameters['temporary_file_directory'], 'distance_from_forest_edge.tif')
     
-    if 'distance_from_stream_filename' not in parameters:
-        parameters['flow_direction_filename'] = os.path.join(
-            parameters['temporary_file_directory'], 'flow_direction.tif')
-        parameters['tiled_dem_uri'] = os.path.join(
-            parameters['temporary_file_directory'], 'tiled_dem.tif')
-        parameters['flow_accumulation_filename'] = os.path.join(
-            parameters['temporary_file_directory'], 'flow_accumulation.tif')
-        parameters['stream_uri'] = os.path.join(
-            parameters['temporary_file_directory'], 'streams.tif')
-        parameters['non_forest_uri'] = os.path.join(
-            parameters['temporary_file_directory'], 'non_forest.tif')
-        parameters['distance_from_stream_filename'] = os.path.join(
-            parameters['temporary_file_directory'], 'distance_from_stream.tif')
-        parameters['distance_from_forest_edge_filename'] = os.path.join(
-            parameters['temporary_file_directory'], 'distance_from_forest_edge.tif')
-        
+    masked_dem_uri = os.path.join(
+        parameters['temporary_file_directory'], 'masked_dem.tif')
+    dem_ds = gdal.Open(parameters['dem_uri'])
+    dem_band = dem_ds.GetRasterBand(1)
+    dem_pixel_size = raster_utils.get_cell_size_from_uri(parameters['dem_uri'])
 
-        raster_utils.tile_dataset_uri(parameters['dem_uri'], parameters['tiled_dem_uri'], 256)
-        print 'resolving filling pits'
-        dem_pit_filled_uri = os.path.join(
-            parameters['temporary_file_directory'], 'pit_filled_dem.tif')
-        routing_utils.fill_pits(parameters['tiled_dem_uri'], dem_pit_filled_uri)
+    raster_utils.vectorize_datasets(
+        [parameters['dem_uri']],
+        lambda x: x, masked_dem_uri, dem_band.DataType,
+        dem_band.GetNoDataValue(), dem_pixel_size, 'intersection',
+        dataset_to_align_index=0, vectorize_op=False,
+        aoi_uri=parameters['watersheds_uri'])
+
+    raster_utils.tile_dataset_uri(masked_dem_uri, parameters['tiled_dem_uri'], 256)
+    print 'resolving filling pits'
+    dem_pit_filled_uri = os.path.join(
+        parameters['temporary_file_directory'], 'pit_filled_dem.tif')
+    routing_utils.fill_pits(parameters['tiled_dem_uri'], dem_pit_filled_uri)
+    
+    print 'resolving plateaus'
+    dem_plateau_resolved_uri = os.path.join(
+        parameters['temporary_file_directory'], 'plateau_resolved_dem.tif')
+    routing_utils.resolve_flat_regions_for_drainage(
+        dem_pit_filled_uri, dem_plateau_resolved_uri)
+    
+    print 'calculate flow direction'
+    routing_utils.flow_direction_inf(
+        dem_plateau_resolved_uri, parameters['flow_direction_filename'])
+    
+    print 'calculate flow accumulation'
+    routing_utils.flow_accumulation(
+        parameters['flow_direction_filename'], dem_plateau_resolved_uri,
+        parameters['flow_accumulation_filename'])
+    
+    print 'calculate stream threshold'
+    routing_utils.stream_threshold(
+        parameters['flow_accumulation_filename'], 
+        parameters['threshold_flow_accumulation'],
+        parameters['stream_uri'])
         
-        print 'resolving plateaus'
-        dem_plateau_resolved_uri = os.path.join(
-            parameters['temporary_file_directory'], 'plateau_resolved_dem.tif')
-        routing_utils.resolve_flat_regions_for_drainage(
-            dem_pit_filled_uri, dem_plateau_resolved_uri)
+    print 'calculate distance from streams'
+    raster_utils.distance_transform_edt(
+        parameters['stream_uri'],
+        parameters['distance_from_stream_filename'])
         
-        print 'calculate flow direction'
-        routing_utils.flow_direction_inf(
-            dem_plateau_resolved_uri, parameters['flow_direction_filename'])
-        
-        print 'calculate flow accumulation'
-        routing_utils.flow_accumulation(
-            parameters['flow_direction_filename'], dem_plateau_resolved_uri,
-            parameters['flow_accumulation_filename'])
-        
-        print 'calculate stream threshold'
-        routing_utils.stream_threshold(
-            parameters['flow_accumulation_filename'], 
-            parameters['threshold_flow_accumulation'],
-            parameters['stream_uri'])
-            
-        print 'calculate distance from streams'
-        raster_utils.distance_transform_edt(
-            parameters['stream_uri'],
-            parameters['distance_from_stream_filename'])
-            
-        
-        forest_pixel_size = raster_utils.get_cell_size_from_uri(
-            parameters['landuse_uri'])
-        lulc_nodata = raster_utils.get_nodata_from_uri(parameters['landuse_uri'])
-        
-        forest_nodata = 255
-        def classify_non_forest(lulc):
-            forest_mask = numpy.empty(lulc.shape)
-            forest_mask[:] = 0
-            for lulc_code in parameters['convert_from_lulc_codes']:
-                lulc_mask = (lulc == lulc_code)
-                forest_mask[lulc_mask] = 1
-            return numpy.where(lulc == lulc_nodata, forest_nodata, forest_mask)
-        
-        raster_utils.vectorize_datasets(
-            [parameters['landuse_uri']],
-            classify_non_forest, parameters['non_forest_uri'], gdal.GDT_Byte,
-            forest_nodata, forest_pixel_size, 'intersection',
-            dataset_to_align_index=0, vectorize_op=False)
-        
-        print 'calculate distance from forest edge'
-        raster_utils.distance_transform_edt(
-            parameters['non_forest_uri'],
-            parameters['distance_from_forest_edge_filename'])
-        
-    else:
-        print 'streams already calculated, use those'
-        
-    save_obj(previous_run_file, parameters)
+    
+    forest_pixel_size = raster_utils.get_cell_size_from_uri(
+        parameters['landuse_uri'])
+    lulc_nodata = raster_utils.get_nodata_from_uri(parameters['landuse_uri'])
+    
+    forest_nodata = 255
+    def classify_non_forest(lulc):
+        forest_mask = numpy.empty(lulc.shape)
+        forest_mask[:] = 0
+        for lulc_code in parameters['convert_from_lulc_codes']:
+            lulc_mask = (lulc == lulc_code)
+            forest_mask[lulc_mask] = 1
+        return numpy.where(lulc == lulc_nodata, forest_nodata, forest_mask)
+    
+    raster_utils.vectorize_datasets(
+        [parameters['landuse_uri']],
+        classify_non_forest, parameters['non_forest_uri'], gdal.GDT_Byte,
+        forest_nodata, forest_pixel_size, 'intersection',
+        dataset_to_align_index=0, vectorize_op=False,
+        aoi_uri=parameters['watersheds_uri'])
+    
+    print 'calculate distance from forest edge'
+    raster_utils.distance_transform_edt(
+        parameters['non_forest_uri'],
+        parameters['distance_from_forest_edge_filename'])
 
 
 def step_land_change(
@@ -363,12 +331,12 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
         gdal.Dataset.__swig_destroy__(sed_export_ds)
         sed_expor_ds = None
         #no need to keep output and intermediate directories
-        for directory in [os.path.join(sdr_args['workspace_dir'], 'output'), os.path.join(sdr_args['workspace_dir'], 'intermediate')]:
+        '''for directory in [os.path.join(sdr_args['workspace_dir'], 'output'), os.path.join(sdr_args['workspace_dir'], 'intermediate')]:
             try:
                 shutil.rmtree(directory)
             except OSError as e:
                 print "can't remove directory " + str(e)
-
+'''
 
         memory_report()
         
@@ -387,8 +355,6 @@ if __name__ == '__main__':
         os.environ[tmp_variable] = TEMPORARY_FOLDER
     
     PARAMETERS = {
-        'convert_from_lulc_codes': range(1, 5), #read from biophysical table
-        'convert_to_lulc_code':12, #this is 'field crop' 
         'temporary_file_directory': TEMPORARY_FOLDER,
         'output_file_directory': OUTPUT_FOLDER,
     }
