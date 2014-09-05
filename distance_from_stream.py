@@ -340,7 +340,7 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
             'k_param': 2,
             'sdr_max': 0.8,
             'ic_0_param': 0.5,
-            '_prepare': parameters['_prepare'],
+            #'_prepare': parameters['_prepare'],
         }
         invest_natcap.sdr.sdr.execute(sdr_args)
         sdr_export_uri = os.path.join(sdr_args['workspace_dir'], 'output', "sed_export_%d.tif" % index)
@@ -348,16 +348,28 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
         sed_export_band = sed_export_ds.GetRasterBand(1)
         nodata = raster_utils.get_nodata_from_uri(sdr_export_uri)
         sed_export_total = 0.0
-        for row_index in xrange(sed_export_ds.RasterYSize):
-            sed_array = sed_export_band.ReadAsArray(
-                0, row_index, sed_export_ds.RasterXSize, 1)
-            sed_export_total += numpy.sum(sed_array[(sed_array != nodata) & (~numpy.isnan(sed_array))])
+        print 'summing the sediment export'
+
+        n_rows = sed_export_band.YSize
+        n_cols = sed_export_band.XSize
+        block_col_size, block_row_size = sed_export_band.GetBlockSize()
+        for global_block_row in xrange(int(numpy.ceil(float(n_rows) / block_row_size))):
+            for global_block_col in xrange(int(numpy.ceil(float(n_cols) / block_col_size))):
+                global_col = global_block_col*block_col_size
+                global_row = global_block_row*block_row_size
+                global_col_size = min((global_block_col+1)*block_col_size, n_cols) - global_col
+                global_row_size = min((global_block_row+1)*block_row_size, n_rows) - global_row
+
+        #for row_index in xrange(sed_export_ds.RasterYSize):
+                sed_array = sed_export_band.ReadAsArray(
+                    global_col, global_row, global_col_size, global_row_size)
+                sed_export_total += numpy.sum(sed_array[(sed_array != nodata) & (~numpy.isnan(sed_array))])
         sed_export_table.write('%d,%f\n' % (index, sed_export_total))
         sed_export_table.flush()
 
         sed_export_band = None
         gdal.Dataset.__swig_destroy__(sed_export_ds)
-        sed_expor_ds = None
+        sed_export_ds = None
         #no need to keep output and intermediate directories
         '''for directory in [os.path.join(sdr_args['workspace_dir'], 'output'), os.path.join(sdr_args['workspace_dir'], 'intermediate')]:
             try:
@@ -366,7 +378,7 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
                 print "can't remove directory " + str(e)
 '''
 
-        memory_report()
+        #memory_report()
         
 if __name__ == '__main__':
     DROPBOX_FOLDER = u'C:/Users/rich/Documents/Dropbox/'
@@ -498,11 +510,11 @@ if __name__ == '__main__':
     
         initialize_simulation(args)
         print 'preparing sdr'
-        args['_prepare'] = invest_natcap.sdr.sdr._prepare(**args)
+        #args['_prepare'] = invest_natcap.sdr.sdr._prepare(**args)
         for MODE, FILENAME, BUFFER in [
-            #("core", "core", 0),
-            #("edge", "edge", 0),
-            #("to_stream", "to_stream", 0),
+            ("core", "core", 0),
+            ("edge", "edge", 0),
+            ("to_stream", "to_stream", 0),
             ("from_stream", "from_stream", 0),
             #("from_stream", "from_stream_with_buffer_1", 1),
             #("from_stream", "from_stream_with_buffer_2", 2),
