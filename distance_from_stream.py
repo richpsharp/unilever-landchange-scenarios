@@ -112,10 +112,10 @@ def initialize_simulation(parameters):
     forest_nodata = 255
     def classify_non_forest(lulc):
         forest_mask = numpy.empty(lulc.shape)
-        forest_mask[:] = 0
+        forest_mask[:] = 1
         for lulc_code in parameters['convert_from_lulc_codes']:
             lulc_mask = (lulc == lulc_code)
-            forest_mask[lulc_mask] = 1
+            forest_mask[lulc_mask] = 0
         return numpy.where(lulc == lulc_nodata, forest_nodata, forest_mask)
     
     raster_utils.vectorize_datasets(
@@ -144,7 +144,7 @@ def step_land_change(
         raise Exception("Unknown mode %s" % mode)
             
 def step_land_change_forest(
-    parameters, base_name, mode, stream_buffer_width):
+    parameters, base_name, mode, stream_buffer_width, aoi_uri=None):
     
     if mode == "core":
         direction_factor = -1
@@ -171,7 +171,7 @@ def step_land_change_forest(
         [parameters['distance_from_forest_edge_filename'], parameters['landuse_uri']],
         valid_distance, conversion_priority_filename, gdal.GDT_Float32,
         conversion_nodata, conversion_pixel_size, 'intersection',
-        dataset_to_align_index=0, vectorize_op=False)
+        dataset_to_align_index=0, vectorize_op=False, aoi_uri=aoi_uri)
 
     #build iterator
     priority_pixels = disk_sort.sort_to_disk(conversion_priority_filename, 0)
@@ -213,7 +213,7 @@ def step_land_change_forest(
     return output_lulc_list
 
 def step_land_change_streams(
-    parameters, base_name, mode, stream_buffer_width):
+    parameters, base_name, mode, stream_buffer_width, aoi_uri=None):
     """
         parameters - the context from the main function
         base_name - base of the filename
@@ -248,7 +248,7 @@ def step_land_change_streams(
         [parameters['distance_from_stream_filename'], parameters['landuse_uri']],
         valid_distance, conversion_priority_filename, gdal.GDT_Float32,
         conversion_nodata, conversion_pixel_size, 'intersection',
-        dataset_to_align_index=0, vectorize_op=False)
+        dataset_to_align_index=0, vectorize_op=False, aoi_uri=aoi_uri)
 
     #build iterator
     priority_pixels = disk_sort.sort_to_disk(conversion_priority_filename, 0)
