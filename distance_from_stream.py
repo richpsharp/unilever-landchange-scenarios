@@ -156,7 +156,8 @@ def step_land_change_forest(
     conversion_pixel_size = raster_utils.get_cell_size_from_uri(
         parameters['landuse_uri'])
     lulc_nodata = raster_utils.get_nodata_from_uri(parameters['landuse_uri'])
-        
+    distance_nodata = raster_utils.get_nodata_from_uri(parameters['distance_from_forest_edge_filename'])
+
     def valid_distance(distance, lulc):
         conversion_array = numpy.empty(distance.shape, dtype=numpy.float32)
         conversion_array[:] = conversion_nodata
@@ -164,7 +165,7 @@ def step_land_change_forest(
             mask = (lulc == convert_code)
             #invert the distance for sorting
             conversion_array[mask] = -distance[mask] * direction_factor
-        return conversion_array
+        return numpy.where(distance != distance_nodata, conversion_array, conversion_nodata)
     
     print 'building the prioritization from stream raster'
     raster_utils.vectorize_datasets(
@@ -212,6 +213,7 @@ def step_land_change_forest(
         output_lulc_list.append(output_lulc_uri)
     return output_lulc_list
 
+
 def step_land_change_streams(
     parameters, base_name, mode, stream_buffer_width, aoi_uri=None):
     """
@@ -233,7 +235,8 @@ def step_land_change_streams(
     conversion_pixel_size = raster_utils.get_cell_size_from_uri(
         parameters['landuse_uri'])
     lulc_nodata = raster_utils.get_nodata_from_uri(parameters['landuse_uri'])
-        
+    distance_nodata = raster_utils.get_nodata_from_uri(parameters['distance_from_stream_filename'])
+
     def valid_distance(distance, lulc):
         conversion_array = numpy.empty(distance.shape, dtype=numpy.float32)
         conversion_array[:] = conversion_nodata
@@ -241,7 +244,7 @@ def step_land_change_streams(
             mask = (lulc == convert_code)
             #invert the distance for sorting
             conversion_array[mask] = -distance[mask] * direction_factor
-        return conversion_array
+        return numpy.where(distance != distance_nodata, conversion_array, conversion_nodata)
     
     print 'building the prioritization from stream raster'
     raster_utils.vectorize_datasets(
