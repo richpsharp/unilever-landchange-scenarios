@@ -2,6 +2,7 @@ import os
 import hashlib
 import pickle
 import threading
+import shutil
 
 import gdal
 import numpy
@@ -91,8 +92,8 @@ def initialize_simulation(parameters):
             parameters['temporary_file_directory'], 'flow_accumulation.tif')
         parameters['stream_uri'] = os.path.join(
             parameters['temporary_file_directory'], 'streams.tif')
-        parameters['forest_uri'] = os.path.join(
-            parameters['temporary_file_directory'], 'forest.tif')
+        parameters['non_forest_uri'] = os.path.join(
+            parameters['temporary_file_directory'], 'non_forest.tif')
         parameters['distance_from_stream_filename'] = os.path.join(
             parameters['temporary_file_directory'], 'distance_from_stream.tif')
         parameters['distance_from_forest_edge_filename'] = os.path.join(
@@ -137,23 +138,23 @@ def initialize_simulation(parameters):
         lulc_nodata = raster_utils.get_nodata_from_uri(parameters['landuse_uri'])
         
         forest_nodata = 255
-        def classify_forest(lulc):
+        def classify_non_forest(lulc):
             forest_mask = numpy.empty(lulc.shape)
-            forest_mask[:] = 1
+            forest_mask[:] = 0
             for lulc_code in parameters['convert_from_lulc_codes']:
                 lulc_mask = (lulc == lulc_code)
-                forest_mask[lulc_mask] = 0
+                forest_mask[lulc_mask] = 1
             return numpy.where(lulc == lulc_nodata, forest_nodata, forest_mask)
         
         raster_utils.vectorize_datasets(
             [parameters['landuse_uri']],
-            classify_forest, parameters['forest_uri'], gdal.GDT_Byte,
+            classify_non_forest, parameters['non_forest_uri'], gdal.GDT_Byte,
             forest_nodata, forest_pixel_size, 'intersection',
             dataset_to_align_index=0, vectorize_op=False)
         
-        print 'calculate distance from forest'
+        print 'calculate distance from forest edge'
         raster_utils.distance_transform_edt(
-            parameters['forest_uri'],
+            parameters['non_forest_uri'],
             parameters['distance_from_forest_edge_filename'])
         
     else:
@@ -359,12 +360,12 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
         sed_export_table.flush()
 
         sed_export_band = None
-        gdal.Dataset.__swig_destroy(sed_export_ds)
+        gdal.Dataset.__swig_destroy__(sed_export_ds)
         sed_expor_ds = None
         #no need to keep output and intermediate directories
         for directory in [os.path.join(sdr_args['workspace_dir'], 'output'), os.path.join(sdr_args['workspace_dir'], 'intermediate')]:
             try:
-                shutils.rmtree(directory)
+                shutil.rmtree(directory)
             except OSError as e:
                 print "can't remove directory " + str(e)
 
@@ -373,7 +374,7 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
         
 if __name__ == '__main__':
     DROPBOX_FOLDER = u'C:/Users/rich/Documents/Dropbox/'
-    OUTPUT_FOLDER = u'C:/Users/rich/Documents/unilever_iowa_outputs'
+    OUTPUT_FOLDER = u'C:/Users/rich/Documents/distance_to_stream_outputs'
     TEMPORARY_FOLDER = os.path.join(OUTPUT_FOLDER, 'temp')
 
     for tmp_variable in ['TMP', 'TEMP', 'TMPDIR']:
@@ -495,9 +496,10 @@ if __name__ == '__main__':
     #summary_reporter.start()
     #(willamette_local_args, 'willamette_local_'), (willamette_global_args, 'willamette_global_'), 
     for args, simulation in [
-        (iowa_global_args, 'iowa_global_'),
-        (iowa_national_args, 'iowa_national_'),
-        (mg_args, 'mg_global'),
+        (willamette_local_args, 'willamette_local_'),
+        #(iowa_global_args, 'iowa_global_'),
+        #(iowa_national_args, 'iowa_national_'),
+        #(mg_args, 'mg_global'),
         ]:
     
         initialize_simulation(args)
@@ -505,13 +507,13 @@ if __name__ == '__main__':
         args['_prepare'] = invest_natcap.sdr.sdr._prepare(**args)
         for MODE, FILENAME, BUFFER in [
             ("core", "core", 0),
-            ("edge", "edge", 0),
-            ("to_stream", "to_stream", 0),
-            ("from_stream", "from_stream", 0),
-            ("from_stream", "from_stream_with_buffer_1", 1),
-            ("from_stream", "from_stream_with_buffer_2", 2),
-            ("from_stream", "from_stream_with_buffer_3", 3),
-            ("from_stream", "from_stream_with_buffer_9", 9)
+            #("edge", "edge", 0),
+            #("to_stream", "to_stream", 0),
+            #("from_stream", "from_stream", 0),
+            #("from_stream", "from_stream_with_buffer_1", 1),
+            #("from_stream", "from_stream_with_buffer_2", 2),
+            #("from_stream", "from_stream_with_buffer_3", 3),
+            #("from_stream", "from_stream_with_buffer_9", 9),
             ]:
             #make the filename the mode, thus mode is passed in twice
             LAND_COVER_URI_LIST = step_land_change(args, simulation+FILENAME, MODE, BUFFER)
