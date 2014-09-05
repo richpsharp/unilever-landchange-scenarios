@@ -144,7 +144,7 @@ def step_land_change(
         raise Exception("Unknown mode %s" % mode)
             
 def step_land_change_forest(
-    parameters, base_name, mode, stream_buffer_width, aoi_uri=None):
+    parameters, base_name, mode, stream_buffer_width):
     
     if mode == "core":
         direction_factor = -1
@@ -153,9 +153,23 @@ def step_land_change_forest(
     conversion_priority_filename = os.path.join(
         parameters['temporary_file_directory'], 'conversion_priority.tif')
     conversion_nodata = direction_factor * 9999
+
     conversion_pixel_size = raster_utils.get_cell_size_from_uri(
         parameters['landuse_uri'])
-    lulc_nodata = raster_utils.get_nodata_from_uri(parameters['landuse_uri'])
+
+    aligned_distance_from_forest_edge_filename = os.path.join(
+        parameters['temporary_file_directory'], 'aligned_distance_from_forest_edge.tif')
+    aligned_landuse_uri = os.path.join(
+        parameters['temporary_file_directory'], 'aligned_landuse.tif')
+
+    raster_utils.align_dataset_list(
+        [parameters['distance_from_forest_edge_filename'], parameters['landuse_uri']], 
+        [aligned_distance_from_forest_edge_filename, aligned_landuse_uri], ['nearest']*2,
+        conversion_pixel_size, 'intersection', 0,
+        dataset_to_bound_index=None, aoi_uri=parameters['watersheds_uri'])
+
+    
+    lulc_nodata = raster_utils.get_nodata_from_uri(aligned_landuse_uri)
     distance_nodata = raster_utils.get_nodata_from_uri(parameters['distance_from_forest_edge_filename'])
 
     def valid_distance(distance, lulc):
@@ -169,14 +183,14 @@ def step_land_change_forest(
     
     print 'building the prioritization from stream raster'
     raster_utils.vectorize_datasets(
-        [parameters['distance_from_forest_edge_filename'], parameters['landuse_uri']],
+        [aligned_distance_from_forest_edge_filename, aligned_landuse_uri],
         valid_distance, conversion_priority_filename, gdal.GDT_Float32,
         conversion_nodata, conversion_pixel_size, 'intersection',
-        dataset_to_align_index=0, vectorize_op=False, aoi_uri=aoi_uri)
+        dataset_to_align_index=0, vectorize_op=False, aoi_uri=parameters['watersheds_uri'])
 
     #build iterator
     priority_pixels = disk_sort.sort_to_disk(conversion_priority_filename, 0)
-    lulc_ds = gdal.Open(parameters['landuse_uri'])
+    lulc_ds = gdal.Open(aligned_landuse_uri)
     lulc_band = lulc_ds.GetRasterBand(1)
     lulc_array = lulc_band.ReadAsArray()
     output_lulc_list = []
@@ -205,7 +219,7 @@ def step_land_change_forest(
             parameters['temporary_file_directory'],
             '%s_%d.tif' % (base_name, step_index))
         raster_utils.new_raster_from_base_uri(
-            parameters['landuse_uri'], output_lulc_uri, 'GTiff', lulc_nodata,
+            aligned_distance_from_forest_edge_filename, output_lulc_uri, 'GTiff', lulc_nodata,
             gdal.GDT_Int32)
         output_lulc_ds = gdal.Open(output_lulc_uri, gdal.GA_Update)
         output_lulc_band = output_lulc_ds.GetRasterBand(1)
@@ -215,7 +229,7 @@ def step_land_change_forest(
 
 
 def step_land_change_streams(
-    parameters, base_name, mode, stream_buffer_width, aoi_uri=None):
+    parameters, base_name, mode, stream_buffer_width):
     """
         parameters - the context from the main function
         base_name - base of the filename
@@ -251,7 +265,7 @@ def step_land_change_streams(
         [parameters['distance_from_stream_filename'], parameters['landuse_uri']],
         valid_distance, conversion_priority_filename, gdal.GDT_Float32,
         conversion_nodata, conversion_pixel_size, 'intersection',
-        dataset_to_align_index=0, vectorize_op=False, aoi_uri=aoi_uri)
+        dataset_to_align_index=0, vectorize_op=False, aoi_uri=parameters['watersheds_uri'])
 
     #build iterator
     priority_pixels = disk_sort.sort_to_disk(conversion_priority_filename, 0)
