@@ -53,11 +53,16 @@ def initialize_simulation(parameters):
         parameters['temporary_file_directory'], 'streams.tif')
     parameters['non_forest_uri'] = os.path.join(
         parameters['temporary_file_directory'], 'non_forest.tif')
+    parameters['non_ag_uri'] = os.path.join(
+        parameters['temporary_file_directory'], 'non_ag.tif')
     parameters['distance_from_stream_filename'] = os.path.join(
         parameters['temporary_file_directory'], 'distance_from_stream.tif')
     parameters['distance_from_forest_edge_filename'] = os.path.join(
         parameters['temporary_file_directory'], 'distance_from_forest_edge.tif')
-    
+    parameters['distance_from_ag_edge_filename'] = os.path.join(
+        parameters['temporary_file_directory'], 'distance_from_ag_edge.tif')
+
+
     masked_dem_uri = os.path.join(
         parameters['temporary_file_directory'], 'masked_dem.tif')
     dem_ds = gdal.Open(parameters['dem_uri'])
@@ -130,6 +135,26 @@ def initialize_simulation(parameters):
         parameters['distance_from_forest_edge_filename'])
 
 
+    ag_nodata = 255
+    def classify_ag(lulc):
+        ag_mask = numpy.empty(lulc.shape)
+        ag_mask[:] = 0
+        ag_mask[lulc ==  parameters['convert_to_lulc_code']] = 1
+        return numpy.where(lulc == lulc_nodata, ag_nodata, ag_mask)
+
+    raster_utils.vectorize_datasets(
+        [parameters['landuse_uri']],
+        classify_ag, parameters['non_ag_uri'], gdal.GDT_Byte,
+        forest_nodata, forest_pixel_size, 'intersection',
+        dataset_to_align_index=0, vectorize_op=False,
+        aoi_uri=parameters['watersheds_uri'])
+
+    print 'calculate distance from agriculture edge'
+    raster_utils.distance_transform_edt(
+        parameters['non_ag_uri'],
+        parameters['distance_from_ag_edge_filename'])
+
+
 def step_land_change(
     parameters, base_name, mode, stream_buffer_width):
     
@@ -142,8 +167,90 @@ def step_land_change(
     elif mode in ['fragmentation']:
         return step_land_change_fragmentation(
             parameters, base_name, mode)
+    elif mode in ['ag']:
+        return step_land_change_ag(
+            parameters, base_name, mode, stream_buffer_width)
     else:
         raise Exception("Unknown mode %s" % mode)
+
+def step_land_change_ag(
+    parameters, base_name, mode, stream_buffer_width):
+    
+    conversion_priority_filename = os.path.join(
+        parameters['temporary_file_directory'], 'conversion_priority.tif')
+    conversion_nodata = 9999
+
+    conversion_pixel_size = raster_utils.get_cell_size_from_uri(
+        parameters['landuse_uri'])
+
+    aligned_distance_from_ag_edge_filename = os.path.join(
+        parameters['temporary_file_directory'], 'aligned_distance_from_ag_edge.tif')
+    aligned_landuse_uri = os.path.join(
+        parameters['temporary_file_directory'], 'aligned_landuse.tif')
+
+    raster_utils.align_dataset_list(
+        [parameters['distance_from_ag_edge_filename'], parameters['landuse_uri']], 
+        [aligned_distance_from_ag_edge_filename, aligned_landuse_uri], ['nearest']*2,
+        conversion_pixel_size, 'intersection', 0,
+        dataset_to_bound_index=None, aoi_uri=parameters['watersheds_uri'])
+
+    
+    lulc_nodata = raster_utils.get_nodata_from_uri(aligned_landuse_uri)
+    distance_nodata = raster_utils.get_nodata_from_uri(parameters['distance_from_ag_edge_filename'])
+
+    def valid_distance(distance, lulc):
+        conversion_array = numpy.empty(distance.shape, dtype=numpy.float32)
+        conversion_array[:] = conversion_nodata
+        for convert_code in parameters['convert_from_lulc_codes']:
+            mask = (lulc == convert_code)
+            #invert the distance for sorting
+            conversion_array[mask] = -distance[mask]
+        return numpy.where(distance != distance_nodata, conversion_array, conversion_nodata)
+    
+    print 'building the prioritization from stream raster'
+    raster_utils.vectorize_datasets(
+        [aligned_distance_from_ag_edge_filename, aligned_landuse_uri],
+        valid_distance, conversion_priority_filename, gdal.GDT_Float32,
+        conversion_nodata, conversion_pixel_size, 'intersection',
+        dataset_to_align_index=0, vectorize_op=False, aoi_uri=parameters['watersheds_uri'])
+
+    #build iterator
+    priority_pixels = disk_sort.sort_to_disk(conversion_priority_filename, 0)
+    lulc_ds = gdal.Open(aligned_landuse_uri)
+    lulc_band = lulc_ds.GetRasterBand(1)
+    lulc_array = lulc_band.ReadAsArray()
+    output_lulc_list = []
+    for step_index in range(parameters['number_of_steps']):
+        print 'making lulc %d' % step_index
+
+        converted_pixels = 0
+        if step_index != 0:
+            for value, flat_index, _ in priority_pixels:
+            
+                if value == -conversion_nodata:
+                    print 'all pixels converted, breaking loop'
+                    break
+                numpy.reshape(lulc_array, -1)[flat_index] = (
+                    parameters['convert_to_lulc_code'])
+                converted_pixels += 1
+                if converted_pixels >= parameters['pixels_per_step_to_convert']:
+                    break
+        
+        if converted_pixels == 0 and step_index != 0:
+            print 'everything converted already, breaking loop'
+            break
+        
+        print 'saving lulc %d' % step_index
+        output_lulc_uri = os.path.join(parameters['land_use_directory'],
+            '%s_%d.tif' % (base_name, step_index))
+        raster_utils.new_raster_from_base_uri(
+            aligned_distance_from_ag_edge_filename, output_lulc_uri, 'GTiff', lulc_nodata,
+            gdal.GDT_Int32)
+        output_lulc_ds = gdal.Open(output_lulc_uri, gdal.GA_Update)
+        output_lulc_band = output_lulc_ds.GetRasterBand(1)
+        output_lulc_band.WriteArray(lulc_array)
+        output_lulc_list.append(output_lulc_uri)
+    return output_lulc_list
 
 
 def step_land_change_fragmentation(
@@ -509,7 +616,7 @@ if __name__ == '__main__':
     
     willamette_local_args = {
         u'convert_from_lulc_codes': range(51,66) + range(62, 65),  #read from biophysical table
-        u'convert_to_lulc_code':71, #this is 'field crop'
+        u'convert_to_lulc_code':87, #some other kind of crop 71, #this is 'field crop'
         u'pixels_per_step_to_convert': 20000/20,
         u'number_of_steps': 20,
         u'biophysical_table_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Freshwater/biophysical_table.csv",
@@ -620,7 +727,8 @@ if __name__ == '__main__':
         #print 'preparing sdr'
         #args['_prepare'] = invest_natcap.sdr.sdr._prepare(**args)
         for MODE, FILENAME, BUFFER in [
-            ("fragmentation", "fragmentation", 0),
+            #("fragmentation", "fragmentation", 0),
+            ("ag", "ag", 0),
             #("core", "core", 0),
             #("edge", "edge", 0),
             #("to_stream", "to_stream", 0),
