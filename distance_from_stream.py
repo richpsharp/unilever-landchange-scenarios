@@ -3,6 +3,8 @@ import hashlib
 import threading
 import shutil
 import math
+import multiprocessing
+
 
 import gdal
 import numpy
@@ -202,16 +204,16 @@ def step_land_change_ag(
     parameters, base_name, mode, stream_buffer_width):
     
     conversion_priority_filename = os.path.join(
-        parameters['temporary_file_directory'], 'conversion_priority.tif')
+        parameters['temporary_file_directory'], 'conversion_priority_%s.tif' % base_name)
     conversion_nodata = 9999
 
     conversion_pixel_size = raster_utils.get_cell_size_from_uri(
         parameters['landuse_uri'])
 
     aligned_distance_from_ag_edge_filename = os.path.join(
-        parameters['temporary_file_directory'], 'aligned_distance_from_ag_edge.tif')
+        parameters['temporary_file_directory'], 'aligned_distance_from_ag_edge_%s.tif' % base_name)
     aligned_landuse_uri = os.path.join(
-        parameters['temporary_file_directory'], 'aligned_landuse.tif')
+        parameters['temporary_file_directory'], 'aligned_landuse_%s.tif' % base_name)
 
     raster_utils.align_dataset_list(
         [parameters['distance_from_ag_edge_filename'], parameters['landuse_uri']], 
@@ -288,7 +290,7 @@ def step_land_change_fragmentation(
     direction_factor = -1
     raster_utils.create_directories([parameters['workspace_dir']])
     conversion_priority_filename = os.path.join(
-        parameters['temporary_file_directory'], 'conversion_priority.tif')
+        parameters['temporary_file_directory'], 'conversion_priority_%s.tif' % base_name)
     non_forest_uri = os.path.join(
         parameters['workspace_dir'], 'non_forest.tif')
     distance_from_forest_uri = os.path.join(
@@ -297,9 +299,9 @@ def step_land_change_fragmentation(
     conversion_pixel_size = raster_utils.get_cell_size_from_uri(
         parameters['landuse_uri'])
     aligned_distance_from_forest_edge_filename = os.path.join(
-        parameters['temporary_file_directory'], 'aligned_distance_from_forest_edge.tif')
+        parameters['temporary_file_directory'], 'aligned_distance_from_forest_edge_%s.tif' % base_name)
     aligned_landuse_uri = os.path.join(
-        parameters['temporary_file_directory'], 'aligned_landuse.tif')
+        parameters['temporary_file_directory'], 'aligned_landuse_%s.tif' % base_name)
     raster_utils.align_dataset_list(
         [parameters['distance_from_forest_edge_filename'], parameters['landuse_uri']], 
         [aligned_distance_from_forest_edge_filename, aligned_landuse_uri], ['nearest']*2,
@@ -399,16 +401,16 @@ def step_land_change_forest(
     elif mode == "edge":
         direction_factor = 1
     conversion_priority_filename = os.path.join(
-        parameters['temporary_file_directory'], 'conversion_priority.tif')
+        parameters['temporary_file_directory'], 'conversion_priority_%s.tif' % base_name)
     conversion_nodata = direction_factor * 9999
 
     conversion_pixel_size = raster_utils.get_cell_size_from_uri(
         parameters['landuse_uri'])
 
     aligned_distance_from_forest_edge_filename = os.path.join(
-        parameters['temporary_file_directory'], 'aligned_distance_from_forest_edge.tif')
+        parameters['temporary_file_directory'], 'aligned_distance_from_forest_edge_%s.tif' % base_name)
     aligned_landuse_uri = os.path.join(
-        parameters['temporary_file_directory'], 'aligned_landuse.tif')
+        parameters['temporary_file_directory'], 'aligned_landuse_%s.tif' % base_name)
 
     raster_utils.align_dataset_list(
         [parameters['distance_from_forest_edge_filename'], parameters['landuse_uri']], 
@@ -494,7 +496,7 @@ def step_land_change_streams(
     elif mode == "from_stream":
         direction_factor = 1
     conversion_priority_filename = os.path.join(
-        parameters['temporary_file_directory'], 'conversion_priority.tif')
+        parameters['temporary_file_directory'], 'conversion_priority_%s.tif' % base_name)
     conversion_nodata = direction_factor * 9999
     conversion_pixel_size = raster_utils.get_cell_size_from_uri(
         parameters['landuse_uri'])
@@ -502,9 +504,9 @@ def step_land_change_streams(
     distance_nodata = raster_utils.get_nodata_from_uri(parameters['distance_from_stream_filename'])
 
     aligned_distance_from_stream_filename = os.path.join(
-        parameters['temporary_file_directory'], 'aligned_distance_from_stream.tif')
+        parameters['temporary_file_directory'], 'aligned_distance_from_stream_%s.tif' % base_name)
     aligned_landuse_uri = os.path.join(
-        parameters['temporary_file_directory'], 'aligned_landuse.tif')
+        parameters['temporary_file_directory'], 'aligned_landuse_%s.tif' % base_name)
 
     raster_utils.align_dataset_list(
         [parameters['distance_from_stream_filename'], parameters['landuse_uri']], 
@@ -748,6 +750,7 @@ if __name__ == '__main__':
     #summary_reporter.start()
     #(willamette_local_args, 'willamette_local_'), (willamette_global_args, 'willamette_global_'), 
 
+    worker_pool = multiprocessing.Pool()
     for args, simulation in [
         (willamette_local_args, 'willamette_local_'),
         #(iowa_global_args, 'iowa_global_'),
@@ -759,8 +762,7 @@ if __name__ == '__main__':
 
         #print 'preparing sdr'
         #args['_prepare'] = invest_natcap.sdr.sdr._prepare(**args)
-        for MODE, FILENAME, BUFFER in [
-            #("fragmentation", "fragmentation", 0),
+        simulation_list = [
             ("ag", "ag", 0),
             ("core", "core", 0),
             ("edge", "edge", 0),
@@ -770,9 +772,20 @@ if __name__ == '__main__':
             ("from_stream", "from_stream_with_buffer_2", 2),
             ("from_stream", "from_stream_with_buffer_3", 3),
             ("from_stream", "from_stream_with_buffer_9", 9),
-            ]:
-            #make the filename the mode, thus mode is passed in twice
-            LAND_COVER_URI_LIST = step_land_change(args, simulation+FILENAME, MODE, BUFFER)
-            #run_sediment_analysis(args, LAND_COVER_URI_LIST, simulation+FILENAME + ".csv")
+            ]
+
+        landcover_uri_dictionary = {}
+
+        result_dictionary = {}
+        for MODE, FILENAME, BUFFER in simulation_list:
+            result_dictionary[FILENAME] = worker_pool.apply_async(step_land_change, [args, simulation+FILENAME, MODE, BUFFER])
+            #landcover_uri_dictionary[FILENAME] = step_land_change(args, simulation+FILENAME, MODE, BUFFER)
+
+        for MODE, FILENAME, BUFFER in simulation_list:
+            landcover_uri_dictionary[FILENAME] = result_dictionary[FILENAME].get(0xFFFF)
+
+        for MODE, FILENAME, BUFFER in simulation_list:
+            #run_sediment_analysis(args, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv")
+            worker_pool.apply_async(run_sediment_analysis,[args, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"])
 
     #summary_reporter.cancel()
