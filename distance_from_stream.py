@@ -2,6 +2,7 @@ import os
 import hashlib
 import threading
 import shutil
+import math
 
 import gdal
 import numpy
@@ -155,6 +156,29 @@ def initialize_simulation(parameters):
         parameters['distance_from_ag_edge_filename'])
 
 
+def calculate_pixels_per_step_for_full_conversion(
+    landuse_uri, convert_from_lulc_codes, number_of_steps):
+
+    landuse_ds = gdal.Open(landuse_uri)
+    landuse_band = landuse_ds.GetRasterBand(1)
+    n_rows = landuse_band.YSize
+    n_cols = landuse_band.XSize
+    block_col_size, block_row_size = landuse_band.GetBlockSize()
+
+    convertable_pixels = 0
+
+    for global_block_row in xrange(int(numpy.ceil(float(n_rows) / block_row_size))):
+        for global_block_col in xrange(int(numpy.ceil(float(n_cols) / block_col_size))):
+            global_col = global_block_col*block_col_size
+            global_row = global_block_row*block_row_size
+            global_col_size = min((global_block_col+1)*block_col_size, n_cols) - global_col
+            global_row_size = min((global_block_row+1)*block_row_size, n_rows) - global_row
+            landuse_block = landuse_band.ReadAsArray(
+                global_col, global_row, global_col_size, global_row_size)
+            for lulc_code in convert_from_lulc_codes:
+                convertable_pixels += len(numpy.nonzero(landuse_block == lulc_code)[0])
+    return int(math.ceil(convertable_pixels / float(number_of_steps)))
+
 def step_land_change(
     parameters, base_name, mode, stream_buffer_width):
     
@@ -172,6 +196,7 @@ def step_land_change(
             parameters, base_name, mode, stream_buffer_width)
     else:
         raise Exception("Unknown mode %s" % mode)
+    
 
 def step_land_change_ag(
     parameters, base_name, mode, stream_buffer_width):
@@ -214,13 +239,17 @@ def step_land_change_ag(
         conversion_nodata, conversion_pixel_size, 'intersection',
         dataset_to_align_index=0, vectorize_op=False, aoi_uri=parameters['watersheds_uri'])
 
+    pixels_per_step_to_convert = calculate_pixels_per_step_for_full_conversion(
+        aligned_landuse_uri, parameters['convert_from_lulc_codes'], parameters['number_of_steps'])
+    
     #build iterator
     priority_pixels = disk_sort.sort_to_disk(conversion_priority_filename, 0)
     lulc_ds = gdal.Open(aligned_landuse_uri)
     lulc_band = lulc_ds.GetRasterBand(1)
     lulc_array = lulc_band.ReadAsArray()
     output_lulc_list = []
-    for step_index in range(parameters['number_of_steps']):
+
+    for step_index in range(parameters['number_of_steps']+1):
         print 'making lulc %d' % step_index
 
         converted_pixels = 0
@@ -233,14 +262,14 @@ def step_land_change_ag(
                 numpy.reshape(lulc_array, -1)[flat_index] = (
                     parameters['convert_to_lulc_code'])
                 converted_pixels += 1
-                if converted_pixels >= parameters['pixels_per_step_to_convert']:
+                if converted_pixels >= pixels_per_step_to_convert:
                     break
         
         if converted_pixels == 0 and step_index != 0:
             print 'everything converted already, breaking loop'
             break
         
-        print 'saving lulc %d' % step_index
+        print 'saving lulc %d, converted pixels %d' % (step_index, converted_pixels)
         output_lulc_uri = os.path.join(parameters['land_use_directory'],
             '%s_%d.tif' % (base_name, step_index))
         raster_utils.new_raster_from_base_uri(
@@ -290,7 +319,11 @@ def step_land_change_fragmentation(
     
     output_lulc_list = []
     previous_aligned_landuse_uri = aligned_landuse_uri
-    for step_index in range(parameters['number_of_steps']):
+
+    pixels_per_step_to_convert = calculate_pixels_per_step_for_full_conversion(
+        aligned_landuse_uri, parameters['convert_from_lulc_codes'], parameters['number_of_steps'])
+
+    for step_index in range(parameters['number_of_steps']+1):
         print step_index
         forest_nodata = 255
         def classify_non_forest(lulc):
@@ -335,7 +368,7 @@ def step_land_change_fragmentation(
                 numpy.reshape(lulc_array, -1)[flat_index] = (
                     parameters['convert_to_lulc_code'])
                 converted_pixels += 1
-                if converted_pixels >= parameters['pixels_per_step_to_convert']:
+                if converted_pixels >= pixels_per_step_to_convert:
                     break
         
         if converted_pixels == 0 and step_index != 0:
@@ -403,13 +436,16 @@ def step_land_change_forest(
         conversion_nodata, conversion_pixel_size, 'intersection',
         dataset_to_align_index=0, vectorize_op=False, aoi_uri=parameters['watersheds_uri'])
 
+    pixels_per_step_to_convert = calculate_pixels_per_step_for_full_conversion(
+        aligned_landuse_uri, parameters['convert_from_lulc_codes'], parameters['number_of_steps'])
+
     #build iterator
     priority_pixels = disk_sort.sort_to_disk(conversion_priority_filename, 0)
     lulc_ds = gdal.Open(aligned_landuse_uri)
     lulc_band = lulc_ds.GetRasterBand(1)
     lulc_array = lulc_band.ReadAsArray()
     output_lulc_list = []
-    for step_index in range(parameters['number_of_steps']):
+    for step_index in range(parameters['number_of_steps']+1):
         print 'making lulc %d' % step_index
 
         converted_pixels = 0
@@ -422,7 +458,7 @@ def step_land_change_forest(
                 numpy.reshape(lulc_array, -1)[flat_index] = (
                     parameters['convert_to_lulc_code'])
                 converted_pixels += 1
-                if converted_pixels >= parameters['pixels_per_step_to_convert']:
+                if converted_pixels >= pixels_per_step_to_convert:
                     break
         
         if converted_pixels == 0 and step_index != 0:
@@ -452,7 +488,7 @@ def step_land_change_streams(
         
         returns a list of land cover change from base to increasing expansion
     """
-    
+
     if mode == "to_stream":
         direction_factor = -1
     elif mode == "from_stream":
@@ -492,13 +528,16 @@ def step_land_change_streams(
         conversion_nodata, conversion_pixel_size, 'intersection',
         dataset_to_align_index=0, vectorize_op=False, aoi_uri=parameters['watersheds_uri'])
 
+    pixels_per_step_to_convert = calculate_pixels_per_step_for_full_conversion(
+        aligned_landuse_uri, parameters['convert_from_lulc_codes'], parameters['number_of_steps'])
+
     #build iterator
     priority_pixels = disk_sort.sort_to_disk(conversion_priority_filename, 0)
     lulc_ds = gdal.Open(aligned_landuse_uri)
     lulc_band = lulc_ds.GetRasterBand(1)
     lulc_array = lulc_band.ReadAsArray()
     output_lulc_list = []
-    for step_index in range(parameters['number_of_steps']):
+    for step_index in range(parameters['number_of_steps']+1):
         print 'making lulc %d' % step_index
 
         converted_pixels = 0
@@ -514,7 +553,7 @@ def step_land_change_streams(
                 numpy.reshape(lulc_array, -1)[flat_index] = (
                     parameters['convert_to_lulc_code'])
                 converted_pixels += 1
-                if converted_pixels >= parameters['pixels_per_step_to_convert']:
+                if converted_pixels >= pixels_per_step_to_convert:
                     break
         
         if converted_pixels == 0 and step_index != 0:
@@ -523,7 +562,7 @@ def step_land_change_streams(
         
         print 'saving lulc %d' % step_index
         output_lulc_uri = os.path.join(
-            parameters['temporary_file_directory'],
+            parameters['land_use_directory'],
             '%s_%d.tif' % (base_name, step_index))
         raster_utils.new_raster_from_base_uri(
             aligned_landuse_uri, output_lulc_uri, 'GTiff', lulc_nodata,
@@ -612,13 +651,12 @@ if __name__ == '__main__':
         'temporary_file_directory': TEMPORARY_FOLDER,
         'output_file_directory': OUTPUT_FOLDER,
         'land_use_directory': LAND_USE_FOLDER,
+        'number_of_steps': 20,
     }
     
     willamette_local_args = {
         u'convert_from_lulc_codes': range(51,66) + range(62, 65),  #read from biophysical table
         u'convert_to_lulc_code':87, #some other kind of crop 71, #this is 'field crop'
-        u'pixels_per_step_to_convert': 20000/20,
-        u'number_of_steps': 20,
         u'biophysical_table_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Freshwater/biophysical_table.csv",
         u'dem_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Freshwater/dem/w001001.adf",
         u'erodibility_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Freshwater/erodibility/w001001.adf",
@@ -637,8 +675,6 @@ if __name__ == '__main__':
     willamette_global_args = {
         u'convert_from_lulc_codes': range(1, 5), #read from biophysical table
         u'convert_to_lulc_code':12, #this is 'field crop'
-        u'pixels_per_step_to_convert': 5000/20,
-        u'number_of_steps': 20,
         u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/biophysical_coeffs_Brazil_Unilever.csv"),
         u'dem_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Freshwater/dem",
         u'erodibility_uri': "C:/Users/rich/Documents/willamette/Willamette_global_Unilever/erodibility_HWSD_Will.tif",
@@ -657,7 +693,6 @@ if __name__ == '__main__':
     mg_args = {
         u'convert_from_lulc_codes': range(1, 5), #read from biophysical table
         u'convert_to_lulc_code':12, #this is 'field crop'
-        u'pixels_per_step_to_convert': 100000,
         u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/biophysical_coeffs_Brazil_Unilever.csv"),
         u'dem_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/DEM_SRTM_MT_filled.tif"),
         u'erodibility_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/erodibility_MT.tif"),
@@ -676,8 +711,6 @@ if __name__ == '__main__':
     iowa_national_args = {
         u'convert_from_lulc_codes': [41, 42, 43, 90], #these are the forest types
         u'convert_to_lulc_code':82, #this is 'cultivated crops'
-        u'pixels_per_step_to_convert': 2616659/20, #this is the number of forest pixels divided by number of steps
-        u'number_of_steps': 20,
         u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/biophysical_coeffs_Iowa_Unilever_national.csv"),
         u'dem_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/DEM_SRTM_Iowa_HUC8_v2_uncompressed_striped.tif"),
         u'erodibility_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/erodibility_STATSGO_Iowa_HUC8.tif"),
@@ -696,8 +729,6 @@ if __name__ == '__main__':
     iowa_global_args = {
         u'convert_from_lulc_codes': range(1, 5), #forest lulcs from biophysical table
         u'convert_to_lulc_code':12, #this is 'field crop'
-        u'pixels_per_step_to_convert': 9772/20, #this is the number of forest pixels divided by number of steps
-        u'number_of_steps': 20,
         u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_global/biophysical_coeffs_Iowa_Unilever_global.csv"),
         u'dem_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/DEM_SRTM_Iowa_HUC8_v2_uncompressed_striped.tif"),
         u'erodibility_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_global/erodibility_HWSD_Iowa_HUC8.tif"),
@@ -716,6 +747,7 @@ if __name__ == '__main__':
     #summary_reporter = PerpetualTimer(1.0, memory_report)
     #summary_reporter.start()
     #(willamette_local_args, 'willamette_local_'), (willamette_global_args, 'willamette_global_'), 
+
     for args, simulation in [
         (willamette_local_args, 'willamette_local_'),
         #(iowa_global_args, 'iowa_global_'),
@@ -724,19 +756,20 @@ if __name__ == '__main__':
         ]:
     
         initialize_simulation(args)
+
         #print 'preparing sdr'
         #args['_prepare'] = invest_natcap.sdr.sdr._prepare(**args)
         for MODE, FILENAME, BUFFER in [
             #("fragmentation", "fragmentation", 0),
             ("ag", "ag", 0),
-            #("core", "core", 0),
-            #("edge", "edge", 0),
-            #("to_stream", "to_stream", 0),
-            #("from_stream", "from_stream", 0),
-            #("from_stream", "from_stream_with_buffer_1", 1),
-            #("from_stream", "from_stream_with_buffer_2", 2),
-            #("from_stream", "from_stream_with_buffer_3", 3),
-            #("from_stream", "from_stream_with_buffer_9", 9),
+            ("core", "core", 0),
+            ("edge", "edge", 0),
+            ("to_stream", "to_stream", 0),
+            ("from_stream", "from_stream", 0),
+            ("from_stream", "from_stream_with_buffer_1", 1),
+            ("from_stream", "from_stream_with_buffer_2", 2),
+            ("from_stream", "from_stream_with_buffer_3", 3),
+            ("from_stream", "from_stream_with_buffer_9", 9),
             ]:
             #make the filename the mode, thus mode is passed in twice
             LAND_COVER_URI_LIST = step_land_change(args, simulation+FILENAME, MODE, BUFFER)
