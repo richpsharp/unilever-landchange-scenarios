@@ -40,7 +40,8 @@ def memory_report():
 
 def initialize_simulation(parameters):
     for dirname in [parameters['temporary_file_directory'],
-                    parameters['output_file_directory']]:
+                    parameters['output_file_directory'],
+                    parameters['land_use_directory']]:
         if not os.path.exists(dirname):
             os.makedirs(dirname)
     
@@ -215,8 +216,7 @@ def step_land_change_forest(
             break
         
         print 'saving lulc %d' % step_index
-        output_lulc_uri = os.path.join(
-            parameters['temporary_file_directory'],
+        output_lulc_uri = os.path.join(parameters['land_use_directory'],
             '%s_%d.tif' % (base_name, step_index))
         raster_utils.new_raster_from_base_uri(
             aligned_distance_from_forest_edge_filename, output_lulc_uri, 'GTiff', lulc_nodata,
@@ -328,7 +328,7 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
     sed_export_table.write('step,%s\n' % os.path.splitext(summary_table_uri)[0])
     for index, lulc_uri in enumerate(land_cover_uri_list):
         sdr_args = {
-            'workspace_dir': parameters['output_file_directory'],
+            'workspace_dir': parameters['workspace_dir'],
             'suffix': str(index),
             'dem_uri': parameters['dem_uri'],
             'erosivity_uri': parameters['erosivity_uri'],
@@ -371,12 +371,11 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
         gdal.Dataset.__swig_destroy__(sed_export_ds)
         sed_export_ds = None
         #no need to keep output and intermediate directories
-        '''for directory in [os.path.join(sdr_args['workspace_dir'], 'output'), os.path.join(sdr_args['workspace_dir'], 'intermediate')]:
+        for directory in [os.path.join(sdr_args['workspace_dir'], 'output'), os.path.join(sdr_args['workspace_dir'], 'intermediate')]:
             try:
                 shutil.rmtree(directory)
             except OSError as e:
                 print "can't remove directory " + str(e)
-'''
 
         #memory_report()
         
@@ -384,6 +383,7 @@ if __name__ == '__main__':
     DROPBOX_FOLDER = u'C:/Users/rich/Documents/Dropbox/'
     OUTPUT_FOLDER = u'C:/Users/rich/Documents/distance_to_stream_outputs'
     TEMPORARY_FOLDER = os.path.join(OUTPUT_FOLDER, 'temp')
+    LAND_USE_FOLDER = os.path.join(OUTPUT_FOLDER, 'land_use_directory')
 
     for tmp_variable in ['TMP', 'TEMP', 'TMPDIR']:
 
@@ -397,6 +397,7 @@ if __name__ == '__main__':
     PARAMETERS = {
         'temporary_file_directory': TEMPORARY_FOLDER,
         'output_file_directory': OUTPUT_FOLDER,
+        'land_use_directory': LAND_USE_FOLDER,
     }
     
     willamette_local_args = {
@@ -509,7 +510,7 @@ if __name__ == '__main__':
         ]:
     
         initialize_simulation(args)
-        print 'preparing sdr'
+        #print 'preparing sdr'
         #args['_prepare'] = invest_natcap.sdr.sdr._prepare(**args)
         for MODE, FILENAME, BUFFER in [
             ("core", "core", 0),
