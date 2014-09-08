@@ -39,11 +39,9 @@ def memory_report():
       
 
 def initialize_simulation(parameters):
-    for dirname in [parameters['temporary_file_directory'],
-                    parameters['output_file_directory'],
-                    parameters['land_use_directory']]:
-        if not os.path.exists(dirname):
-            os.makedirs(dirname)
+    raster_utils.create_directories([parameters['temporary_file_directory'],
+        parameters['output_file_directory'],
+        parameters['land_use_directory']])
     
     parameters['flow_direction_filename'] = os.path.join(
         parameters['temporary_file_directory'], 'flow_direction.tif')
@@ -141,8 +139,117 @@ def step_land_change(
     elif mode in ['core', 'edge']:
         return step_land_change_forest(
             parameters, base_name, mode, stream_buffer_width)
+    elif mode in ['fragmentation']:
+        return step_land_change_fragmentation(
+            parameters, base_name, mode)
     else:
         raise Exception("Unknown mode %s" % mode)
+
+
+def step_land_change_fragmentation(
+    parameters, base_name, mode):
+    
+    direction_factor = -1
+    raster_utils.create_directories([parameters['workspace_dir']])
+    conversion_priority_filename = os.path.join(
+        parameters['temporary_file_directory'], 'conversion_priority.tif')
+    non_forest_uri = os.path.join(
+        parameters['workspace_dir'], 'non_forest.tif')
+    distance_from_forest_uri = os.path.join(
+        parameters['workspace_dir'], 'distance_from_forest.tif')
+    conversion_nodata = direction_factor * 9999
+    conversion_pixel_size = raster_utils.get_cell_size_from_uri(
+        parameters['landuse_uri'])
+    aligned_distance_from_forest_edge_filename = os.path.join(
+        parameters['temporary_file_directory'], 'aligned_distance_from_forest_edge.tif')
+    aligned_landuse_uri = os.path.join(
+        parameters['temporary_file_directory'], 'aligned_landuse.tif')
+    raster_utils.align_dataset_list(
+        [parameters['distance_from_forest_edge_filename'], parameters['landuse_uri']], 
+        [aligned_distance_from_forest_edge_filename, aligned_landuse_uri], ['nearest']*2,
+        conversion_pixel_size, 'intersection', 0,
+        dataset_to_bound_index=None, aoi_uri=parameters['watersheds_uri'])
+    lulc_nodata = raster_utils.get_nodata_from_uri(aligned_landuse_uri)
+    distance_nodata = raster_utils.get_nodata_from_uri(parameters['distance_from_forest_edge_filename'])
+
+    def valid_distance(distance, lulc):
+        conversion_array = numpy.empty(distance.shape, dtype=numpy.float32)
+        conversion_array[:] = conversion_nodata
+        for convert_code in parameters['convert_from_lulc_codes']:
+            mask = (lulc == convert_code)
+            #invert the distance for sorting
+            conversion_array[mask] = -distance[mask] * direction_factor
+        return numpy.where(distance != distance_nodata, conversion_array, conversion_nodata)
+    
+    output_lulc_list = []
+    previous_aligned_landuse_uri = aligned_landuse_uri
+    for step_index in range(parameters['number_of_steps']):
+        print step_index
+        forest_nodata = 255
+        def classify_non_forest(lulc):
+            forest_mask = numpy.empty(lulc.shape)
+            forest_mask[:] = 1
+            for lulc_code in parameters['convert_from_lulc_codes']:
+                lulc_mask = (lulc == lulc_code)
+                forest_mask[lulc_mask] = 0
+            return numpy.where(lulc == lulc_nodata, forest_nodata, forest_mask)
+        print previous_aligned_landuse_uri
+        raster_utils.vectorize_datasets(
+            [previous_aligned_landuse_uri],
+            classify_non_forest, non_forest_uri, gdal.GDT_Byte,
+            forest_nodata, conversion_pixel_size, 'intersection',
+            dataset_to_align_index=0, vectorize_op=False,
+            aoi_uri=parameters['watersheds_uri'])
+        raster_utils.distance_transform_edt(
+            non_forest_uri, distance_from_forest_uri)
+
+        print 'making lulc %d' % step_index
+
+        print 'building the prioritization from forest edge'
+        raster_utils.vectorize_datasets(
+            [distance_from_forest_uri, previous_aligned_landuse_uri],
+            valid_distance, conversion_priority_filename, gdal.GDT_Float32,
+            conversion_nodata, conversion_pixel_size, 'intersection',
+            dataset_to_align_index=0, vectorize_op=False, aoi_uri=parameters['watersheds_uri'])
+
+        #build iterator
+        priority_pixels = disk_sort.sort_to_disk(conversion_priority_filename, 0)
+        lulc_ds = gdal.Open(previous_aligned_landuse_uri)
+        lulc_band = lulc_ds.GetRasterBand(1)
+        lulc_array = lulc_band.ReadAsArray()
+        
+        converted_pixels = 0
+        if step_index != 0:
+            for value, flat_index, _ in priority_pixels:
+            
+                if value == -conversion_nodata:
+                    print 'all pixels converted, breaking loop'
+                    break
+                numpy.reshape(lulc_array, -1)[flat_index] = (
+                    parameters['convert_to_lulc_code'])
+                converted_pixels += 1
+                if converted_pixels >= parameters['pixels_per_step_to_convert']:
+                    break
+        
+        if converted_pixels == 0 and step_index != 0:
+            print 'everything converted already, breaking loop'
+            break
+        
+        print 'saving lulc %d' % step_index
+        output_lulc_uri = os.path.join(parameters['land_use_directory'],
+            '%s_%d.tif' % (base_name, step_index))
+        previous_aligned_landuse_uri = output_lulc_uri
+        raster_utils.new_raster_from_base_uri(
+            aligned_distance_from_forest_edge_filename, output_lulc_uri, 'GTiff', lulc_nodata,
+            gdal.GDT_Int32)
+        output_lulc_ds = gdal.Open(output_lulc_uri, gdal.GA_Update)
+        output_lulc_band = output_lulc_ds.GetRasterBand(1)
+        output_lulc_band.WriteArray(lulc_array)
+        output_lulc_band.FlushCache()
+
+        output_lulc_list.append(output_lulc_uri)
+    return output_lulc_list
+
             
 def step_land_change_forest(
     parameters, base_name, mode, stream_buffer_width):
@@ -513,10 +620,11 @@ if __name__ == '__main__':
         #print 'preparing sdr'
         #args['_prepare'] = invest_natcap.sdr.sdr._prepare(**args)
         for MODE, FILENAME, BUFFER in [
-            ("core", "core", 0),
-            ("edge", "edge", 0),
-            ("to_stream", "to_stream", 0),
-            ("from_stream", "from_stream", 0),
+            ("fragmentation", "fragmentation", 0),
+            #("core", "core", 0),
+            #("edge", "edge", 0),
+            #("to_stream", "to_stream", 0),
+            #("from_stream", "from_stream", 0),
             #("from_stream", "from_stream_with_buffer_1", 1),
             #("from_stream", "from_stream_with_buffer_2", 2),
             #("from_stream", "from_stream_with_buffer_3", 3),
@@ -524,6 +632,6 @@ if __name__ == '__main__':
             ]:
             #make the filename the mode, thus mode is passed in twice
             LAND_COVER_URI_LIST = step_land_change(args, simulation+FILENAME, MODE, BUFFER)
-            run_sediment_analysis(args, LAND_COVER_URI_LIST, simulation+FILENAME + ".csv")
+            #run_sediment_analysis(args, LAND_COVER_URI_LIST, simulation+FILENAME + ".csv")
 
     #summary_reporter.cancel()
