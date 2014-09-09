@@ -14,31 +14,6 @@ from invest_natcap.routing import routing_utils
 from invest_natcap import raster_utils
 from invest_natcap.scenario_generator import disk_sort
 import invest_natcap.sdr.sdr
-
-
-class PerpetualTimer():
-   
-    def __init__(self, time_to_wait, callback):
-       self.time_to_wait = time_to_wait
-       self.callback = callback
-       self.thread = threading.Timer(self.time_to_wait, self.process_callback)
-
-    def process_callback(self):
-       self.callback()
-       self.thread = threading.Timer(self.time_to_wait, self.process_callback)
-       self.thread.start()
-
-    def start(self):
-       self.thread.start()
-
-    def cancel(self):
-       self.thread.cancel()
-
-
-def memory_report():
-    summary_tracker = pympler.tracker.SummaryTracker()
-    summary_tracker.print_diff() 
-    
       
 
 def initialize_simulation(parameters):
@@ -64,7 +39,6 @@ def initialize_simulation(parameters):
         parameters['temporary_file_directory'], 'distance_from_forest_edge.tif')
     parameters['distance_from_ag_edge_filename'] = os.path.join(
         parameters['temporary_file_directory'], 'distance_from_ag_edge.tif')
-
 
     masked_dem_uri = os.path.join(
         parameters['temporary_file_directory'], 'masked_dem.tif')
@@ -136,7 +110,6 @@ def initialize_simulation(parameters):
     raster_utils.distance_transform_edt(
         parameters['non_forest_uri'],
         parameters['distance_from_forest_edge_filename'])
-
 
     ag_nodata = 255
     def classify_ag(lulc):
@@ -581,9 +554,12 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
         parameters['output_file_directory'], summary_table_uri)
     sed_export_table = open(sed_export_table_uri, 'w')
     sed_export_table.write('step,%s\n' % os.path.splitext(summary_table_uri)[0])
+
+    result_list = []
+    worker_pool = multiprocessing.Pool()
     for index, lulc_uri in enumerate(land_cover_uri_list):
         sdr_args = {
-            'workspace_dir': parameters['workspace_dir'],
+            'workspace_dir': os.path.join(parameters['workspace_dir'], str(index)),
             'suffix': str(index),
             'dem_uri': parameters['dem_uri'],
             'erosivity_uri': parameters['erosivity_uri'],
@@ -595,9 +571,12 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
             'k_param': 2,
             'sdr_max': 0.8,
             'ic_0_param': 0.5,
-            #'_prepare': parameters['_prepare'],
         }
-        invest_natcap.sdr.sdr.execute(sdr_args)
+        result_list.append(
+            (worker_pool.apply_async(invest_natcap.sdr.sdr.execute, [sdr_args.copy()]), sdr_args))
+
+    for index, (result, sdr_args) in enumerate(result_list):
+        result.get(0xFFFFF)
         sdr_export_uri = os.path.join(sdr_args['workspace_dir'], 'output', "sed_export_%d.tif" % index)
         sed_export_ds = gdal.Open(sdr_export_uri)
         sed_export_band = sed_export_ds.GetRasterBand(1)
@@ -632,7 +611,6 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
             except OSError as e:
                 print "can't remove directory " + str(e)
 
-        #memory_report()
         
 if __name__ == '__main__':
     DROPBOX_FOLDER = u'C:/Users/rich/Documents/Dropbox/'
@@ -746,13 +724,10 @@ if __name__ == '__main__':
     }
     iowa_global_args.update(PARAMETERS)
     
-    #summary_reporter = PerpetualTimer(1.0, memory_report)
-    #summary_reporter.start()
-    #(willamette_local_args, 'willamette_local_'), (willamette_global_args, 'willamette_global_'), 
-
-    worker_pool = multiprocessing.Pool()
+    worker_pool = raster_utils.PoolNoDaemon()
     for args, simulation in [
         (willamette_local_args, 'willamette_local_'),
+        #(willamette_global_args, 'willamette_global_'),
         #(iowa_global_args, 'iowa_global_'),
         #(iowa_national_args, 'iowa_national_'),
         #(mg_args, 'mg_global'),
@@ -760,8 +735,6 @@ if __name__ == '__main__':
     
         initialize_simulation(args)
 
-        #print 'preparing sdr'
-        #args['_prepare'] = invest_natcap.sdr.sdr._prepare(**args)
         simulation_list = [
             ("ag", "ag", 0),
             ("core", "core", 0),
@@ -779,13 +752,14 @@ if __name__ == '__main__':
         result_dictionary = {}
         for MODE, FILENAME, BUFFER in simulation_list:
             result_dictionary[FILENAME] = worker_pool.apply_async(step_land_change, [args, simulation+FILENAME, MODE, BUFFER])
-            #landcover_uri_dictionary[FILENAME] = step_land_change(args, simulation+FILENAME, MODE, BUFFER)
-
+ 
+        result_list = []
         for MODE, FILENAME, BUFFER in simulation_list:
             landcover_uri_dictionary[FILENAME] = result_dictionary[FILENAME].get(0xFFFF)
+            args_copy = args.copy()
+            args_copy['workspace_dir'] = os.path.join(args['workspace_dir'], FILENAME)
+            result_list.append(worker_pool.apply_async(
+                run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
 
-        for MODE, FILENAME, BUFFER in simulation_list:
-            #run_sediment_analysis(args, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv")
-            worker_pool.apply_async(run_sediment_analysis,[args, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"])
-
-    #summary_reporter.cancel()
+        for result in result_list:
+            result.get(0xFFFF)
