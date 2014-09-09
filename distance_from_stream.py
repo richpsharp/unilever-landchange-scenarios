@@ -751,10 +751,12 @@ if __name__ == '__main__':
 
         result_dictionary = {}
         for MODE, FILENAME, BUFFER in simulation_list:
+            break
             result_dictionary[FILENAME] = worker_pool.apply_async(step_land_change, [args, simulation+FILENAME, MODE, BUFFER])
  
         result_list = []
         for MODE, FILENAME, BUFFER in simulation_list:
+            break
             landcover_uri_dictionary[FILENAME] = result_dictionary[FILENAME].get(0xFFFF)
             args_copy = args.copy()
             args_copy['workspace_dir'] = os.path.join(args['workspace_dir'], FILENAME)
@@ -763,3 +765,43 @@ if __name__ == '__main__':
 
         for result in result_list:
             result.get(0xFFFF)
+
+        #aggregate all the .csv results into one big csv
+        #get area of a pixel
+        try:
+            out_pixel_size = raster_utils.get_cell_size_from_uri(landcover_uri_dictionary.values()[0][0])
+        except IndexError:
+            out_pixel_size = 1
+    
+        simulation_result_dictionary = {
+            filename:['']*(args['number_of_steps']+1) for _, filename, _ in simulation_list
+        }
+
+        print out_pixel_size
+        #open all the csvs and dump them to a dictionary
+        #loop through each step of the dictionary and output a row
+
+        for MODE, FILENAME, BUFFER in simulation_list:
+            summary_table_uri = simulation+FILENAME + ".csv"
+            sed_export_table_uri = os.path.join(
+                args['output_file_directory'], summary_table_uri)
+            sed_export_table = open(sed_export_table_uri, 'r')
+            sed_export_table.readline()
+            step_index = 0
+            for line in sed_export_table:
+                sediment_export_value = (''.join(line.split(',')[1:])).rstrip()
+                simulation_result_dictionary[FILENAME][step_index] = sediment_export_value
+                step_index += 1
+        #    sed_export_table.write('step,%s\n' % os.path.splitext(summary_table_uri)[0])
+        
+        print simulation_result_dictionary
+        summary_table_uri = os.path.join(args['output_file_directory'], simulation + '_summary_table.csv')
+        summary_table = open(summary_table_uri, 'w')
+        summary_table.write('area converted (Ha),')
+        summary_table.write(','.join([filename for (_, filename, _) in simulation_list]) + '\n')
+        for step_number in xrange(args['number_of_steps'] + 1):
+            summary_table.write('%f' % (step_number * out_pixel_size))
+            for _, FILENAME, _ in simulation_list:
+                summary_table.write(','+str(simulation_result_dictionary[FILENAME][step_number]))
+            summary_table.write('\n')
+        summary_table.close()
