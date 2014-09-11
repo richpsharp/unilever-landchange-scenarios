@@ -8,7 +8,6 @@ import multiprocessing
 
 import gdal
 import numpy
-import pympler.tracker
 
 from invest_natcap.routing import routing_utils
 from invest_natcap import raster_utils
@@ -613,8 +612,8 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
 
         
 if __name__ == '__main__':
-    DROPBOX_FOLDER = u'C:/Users/rich/Documents/Dropbox/'
-    OUTPUT_FOLDER = u'C:/Users/rich/Documents/distance_to_stream_outputs'
+    DROPBOX_FOLDER = u'C:/Users/rpsharp/Dropbox_stanford/Dropbox'
+    OUTPUT_FOLDER = u'C:/Users/rpsharp/Documents/distance_to_stream_outputs'
     TEMPORARY_FOLDER = os.path.join(OUTPUT_FOLDER, 'temp')
     LAND_USE_FOLDER = os.path.join(OUTPUT_FOLDER, 'land_use_directory')
 
@@ -637,16 +636,16 @@ if __name__ == '__main__':
     willamette_local_args = {
         u'convert_from_lulc_codes': range(51,66) + range(62, 65),  #read from biophysical table
         u'convert_to_lulc_code':87, #some other kind of crop 71, #this is 'field crop'
-        u'biophysical_table_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Freshwater/biophysical_table.csv",
-        u'dem_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Freshwater/dem/w001001.adf",
-        u'erodibility_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Freshwater/erodibility/w001001.adf",
-        u'erosivity_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Freshwater/erosivity/w001001.adf",
+        u'biophysical_table_uri': "C:/InVEST_3_0_1b1_x86/Base_Data/Freshwater/biophysical_table.csv",
+        u'dem_uri': "C:/InVEST_3_0_1b1_x86/Base_Data/Freshwater/dem/w001001.adf",
+        u'erodibility_uri': "C:/InVEST_3_0_1b1_x86/Base_Data/Freshwater/erodibility/w001001.adf",
+        u'erosivity_uri': "C:/InVEST_3_0_1b1_x86/Base_Data/Freshwater/erosivity/w001001.adf",
         u'ic_0_param': u'0.5',
         u'k_param': u'2',
-        u'landuse_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Terrestrial/lulc_samp_cur/w001001.adf",
+        u'landuse_uri': "C:/InVEST_3_0_1b1_x86/Base_Data/Terrestrial/lulc_samp_cur/w001001.adf",
         u'sdr_max': u'0.8',
         u'threshold_flow_accumulation': 1000,
-        u'watersheds_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Freshwater/watersheds.shp",
+        u'watersheds_uri': "C:/InVEST_3_0_1b1_x86/Base_Data/Freshwater/watersheds.shp",
         u'workspace_dir': os.path.join(OUTPUT_FOLDER, u'willamette_local/'),
         u'suffix': 'willamette_local',
     }
@@ -656,7 +655,7 @@ if __name__ == '__main__':
         u'convert_from_lulc_codes': range(1, 5), #read from biophysical table
         u'convert_to_lulc_code':12, #this is 'field crop'
         u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/biophysical_coeffs_Brazil_Unilever.csv"),
-        u'dem_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Freshwater/dem",
+        u'dem_uri': "C:/InVEST_3_0_1b1_x86/Base_Data/Freshwater/dem",
         u'erodibility_uri': "C:/Users/rich/Documents/willamette/Willamette_global_Unilever/erodibility_HWSD_Will.tif",
         u'erosivity_uri': "C:/Users/rich/Documents/willamette/Willamette_global_Unilever/erosivity_Will_UTM.tif",
         u'ic_0_param': u'0.5',
@@ -664,7 +663,7 @@ if __name__ == '__main__':
         u'landuse_uri': "C:/Users/rich/Documents/willamette/Willamette_global_Unilever/MCD12Q1_type1_2012_Willamette_UTM.tif",
         u'sdr_max': u'0.8',
         u'threshold_flow_accumulation': 1000,
-        u'watersheds_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Freshwater/watersheds.shp",
+        u'watersheds_uri': "C:/InVEST_3_0_1b1_x86/Base_Data/Freshwater/watersheds.shp",
         u'workspace_dir': os.path.join(OUTPUT_FOLDER, u'willamette_global/'),
         u'suffix': 'willamette_global',
     }
@@ -752,12 +751,10 @@ if __name__ == '__main__':
 
         result_dictionary = {}
         for MODE, FILENAME, BUFFER in simulation_list:
-            break
             result_dictionary[FILENAME] = worker_pool.apply_async(step_land_change, [args, simulation+FILENAME, MODE, BUFFER])
  
         result_list = []
         for MODE, FILENAME, BUFFER in simulation_list:
-            break
             landcover_uri_dictionary[FILENAME] = result_dictionary[FILENAME].get(0xFFFF)
             args_copy = args.copy()
             args_copy['workspace_dir'] = os.path.join(args['workspace_dir'], FILENAME)
