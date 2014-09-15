@@ -65,11 +65,25 @@ def initialize_simulation(parameters):
     parameters['distance_from_ag_edge_filename'] = os.path.join(
         parameters['temporary_file_directory'], 'distance_from_ag_edge.tif')
 
-    masked_dem_uri = os.path.join(
-        parameters['temporary_file_directory'], 'masked_dem.tif')
+    aligned_lulc_uri =  os.path.join(
+        parameters['temporary_file_directory'], 'aligned_lulc.tif')
+
+    out_pixel_size = raster_utils.get_cell_size_from_uri(parameters['dem_uri'])
+    tmp_dem_uri = raster_utils.temporary_filename()
+    raster_utils.align_dataset_list(
+        [parameters['dem_uri'], args['landuse_uri']], [tmp_dem_uri, aligned_lulc_uri],
+        ['nearest'] * 2, out_pixel_size, 'dataset',
+        0, dataset_to_bound_index=0, aoi_uri=args['watersheds_uri'])
+    os.remove(tmp_dem_uri)
+
+    parameters['landuse_uri'] = aligned_lulc_uri
+
     dem_ds = gdal.Open(parameters['dem_uri'])
     dem_band = dem_ds.GetRasterBand(1)
     dem_pixel_size = raster_utils.get_cell_size_from_uri(parameters['dem_uri'])
+
+    masked_dem_uri = os.path.join(
+        parameters['temporary_file_directory'], 'masked_dem.tif')
 
     raster_utils.vectorize_datasets(
         [parameters['dem_uri']],
@@ -580,6 +594,8 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
     sed_export_table = open(sed_export_table_uri, 'w')
     sed_export_table.write('step,%s\n' % os.path.splitext(summary_table_uri)[0])
 
+    parameters['_prepare'] = invest_natcap.sdr.sdr._prepare(**parameters)
+
     for index, lulc_uri in enumerate(land_cover_uri_list):
         sdr_args = {
             'workspace_dir': os.path.join(parameters['workspace_dir'], str(index)),
@@ -594,14 +610,10 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
             'k_param': 2,
             'sdr_max': 0.8,
             'ic_0_param': 0.5,
+            '_prepare': parameters['_prepare'],
         }
-        #result_list.append(
-        #    (worker_pool.apply_async(invest_natcap.sdr.sdr.execute, [sdr_args.copy()]), sdr_args))
         invest_natcap.sdr.sdr.execute(sdr_args)
 
-
-#    for index, (result, sdr_args) in enumerate(result_list):
-#        result.get(0xFFFFF)
         sdr_export_uri = os.path.join(sdr_args['workspace_dir'], 'output', "sed_export_%d.tif" % index)
         sed_export_ds = gdal.Open(sdr_export_uri)
         sed_export_band = sed_export_ds.GetRasterBand(1)
@@ -647,8 +659,8 @@ def worker(input, output):
 
 
 if __name__ == '__main__':
-    DROPBOX_FOLDER = u'C:/Users/rpsharp/Dropbox_stanford/Dropbox'
-    OUTPUT_FOLDER = u'C:/Users/rpsharp/Documents/distance_to_stream_outputs'
+    DROPBOX_FOLDER = u'C:/Users/rich/Documents/Dropbox'
+    OUTPUT_FOLDER = u'C:/Users/rich/Documents/distance_to_stream_outputs'
     TEMPORARY_FOLDER = os.path.join(OUTPUT_FOLDER, 'temp')
     LAND_USE_FOLDER = os.path.join(OUTPUT_FOLDER, 'land_use_directory')
     NUMBER_OF_PROCESSES = 4
@@ -691,15 +703,15 @@ if __name__ == '__main__':
         u'convert_from_lulc_codes': range(1, 5), #read from biophysical table
         u'convert_to_lulc_code':12, #this is 'field crop'
         u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/biophysical_coeffs_Brazil_Unilever.csv"),
-        u'dem_uri': "C:/InVEST_3_0_1b1_x86/Base_Data/Freshwater/dem",
-        u'erodibility_uri': "C:/Users/rich/Documents/willamette/Willamette_global_Unilever/erodibility_HWSD_Will.tif",
-        u'erosivity_uri': "C:/Users/rich/Documents/willamette/Willamette_global_Unilever/erosivity_Will_UTM.tif",
+        u'dem_uri': "C:/Users/rich/Documents/Base_Data/Freshwater/dem",
+        u'erodibility_uri': "C:/Users/rich/Documents/Willamette_global_Unilever/erodibility_HWSD_Will.tif",
+        u'erosivity_uri': "C:/Users/rich/Documents/Willamette_global_Unilever/erosivity_Will_UTM.tif",
         u'ic_0_param': u'0.5',
         u'k_param': u'2',
-        u'landuse_uri': "C:/Users/rich/Documents/willamette/Willamette_global_Unilever/MCD12Q1_type1_2012_Willamette_UTM.tif",
+        u'landuse_uri': "C:/Users/rich/Documents/Willamette_global_Unilever/MCD12Q1_type1_2012_Willamette_UTM.tif",
         u'sdr_max': u'0.8',
         u'threshold_flow_accumulation': 1000,
-        u'watersheds_uri': "C:/InVEST_3_0_1b1_x86/Base_Data/Freshwater/watersheds.shp",
+        u'watersheds_uri': "C:/Users/rich/Documents/Base_Data/Freshwater/watersheds.shp",
         u'workspace_dir': os.path.join(OUTPUT_FOLDER, u'willamette_global/'),
         u'suffix': 'willamette_global',
     }
@@ -760,12 +772,9 @@ if __name__ == '__main__':
     iowa_global_args.update(PARAMETERS)
     
     #worker_pool = multiprocessing.Pool()
-    input_queue = multiprocessing.JoinableQueue()
-    output_queue = multiprocessing.Queue()
-    
     for args, simulation in [
-        (willamette_local_args, 'willamette_local_'),
-        #(willamette_global_args, 'willamette_global_'),
+        #(willamette_local_args, 'willamette_local_'),
+        (willamette_global_args, 'willamette_global_'),
         #(mg_args, 'mg_global'),
         #(iowa_global_args, 'iowa_global_'),
         #(iowa_national_args, 'iowa_national_'),
@@ -787,6 +796,9 @@ if __name__ == '__main__':
             ]
 
         landcover_uri_dictionary = {}
+
+        input_queue = multiprocessing.JoinableQueue()
+        output_queue = multiprocessing.Queue()
 
         result_dictionary = {}
         for MODE, FILENAME, BUFFER in simulation_list:
