@@ -14,6 +14,32 @@ from invest_natcap.routing import routing_utils
 from invest_natcap import raster_utils
 from invest_natcap.scenario_generator import disk_sort
 import invest_natcap.sdr.sdr
+
+
+def lowpriority():
+    """ Set the priority of the process to below-normal."""
+
+    import sys
+    try:
+        sys.getwindowsversion()
+    except:
+        is_windows = False
+    else:
+        is_windows = True
+
+    if is_windows:
+        # Based on:
+        #   "Recipe 496767: Set Process Priority In Windows" on ActiveState
+        #   http://code.activestate.com/recipes/496767/
+        import win32api, win32process, win32con
+
+        pid = win32api.GetCurrentProcessId()
+        handle = win32api.OpenProcess(win32con.PROCESS_ALL_ACCESS, True, pid)
+        win32process.SetPriorityClass(handle, win32process.IDLE_PRIORITY_CLASS)
+    else:
+        import os
+        os.nice(1)
+
       
 
 def initialize_simulation(parameters):
@@ -726,11 +752,11 @@ if __name__ == '__main__':
     
     worker_pool = raster_utils.PoolNoDaemon()
     for args, simulation in [
-        (willamette_local_args, 'willamette_local_'),
+        #(willamette_local_args, 'willamette_local_'),
         #(willamette_global_args, 'willamette_global_'),
-        #(iowa_global_args, 'iowa_global_'),
-        #(iowa_national_args, 'iowa_national_'),
-        #(mg_args, 'mg_global'),
+        (mg_args, 'mg_global'),
+        (iowa_global_args, 'iowa_global_'),
+        (iowa_national_args, 'iowa_national_'),
         ]:
     
         initialize_simulation(args)
@@ -752,12 +778,10 @@ if __name__ == '__main__':
 
         result_dictionary = {}
         for MODE, FILENAME, BUFFER in simulation_list:
-            break
             result_dictionary[FILENAME] = worker_pool.apply_async(step_land_change, [args, simulation+FILENAME, MODE, BUFFER])
  
         result_list = []
         for MODE, FILENAME, BUFFER in simulation_list:
-            break
             landcover_uri_dictionary[FILENAME] = result_dictionary[FILENAME].get(0xFFFF)
             args_copy = args.copy()
             args_copy['workspace_dir'] = os.path.join(args['workspace_dir'], FILENAME)
