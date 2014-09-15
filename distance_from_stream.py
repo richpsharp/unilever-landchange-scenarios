@@ -581,8 +581,6 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
     sed_export_table = open(sed_export_table_uri, 'w')
     sed_export_table.write('step,%s\n' % os.path.splitext(summary_table_uri)[0])
 
-    result_list = []
-    worker_pool = multiprocessing.Pool()
     for index, lulc_uri in enumerate(land_cover_uri_list):
         sdr_args = {
             'workspace_dir': os.path.join(parameters['workspace_dir'], str(index)),
@@ -598,11 +596,13 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
             'sdr_max': 0.8,
             'ic_0_param': 0.5,
         }
-        result_list.append(
-            (worker_pool.apply_async(invest_natcap.sdr.sdr.execute, [sdr_args.copy()]), sdr_args))
+        #result_list.append(
+        #    (worker_pool.apply_async(invest_natcap.sdr.sdr.execute, [sdr_args.copy()]), sdr_args))
+        invest_natcap.sdr.sdr.execute(sdr_args)
 
-    for index, (result, sdr_args) in enumerate(result_list):
-        result.get(0xFFFFF)
+
+#    for index, (result, sdr_args) in enumerate(result_list):
+#        result.get(0xFFFFF)
         sdr_export_uri = os.path.join(sdr_args['workspace_dir'], 'output', "sed_export_%d.tif" % index)
         sed_export_ds = gdal.Open(sdr_export_uri)
         sed_export_band = sed_export_ds.GetRasterBand(1)
@@ -637,12 +637,22 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
             except OSError as e:
                 print "can't remove directory " + str(e)
 
-        
+
+def worker(input, output):
+    lowpriority()
+    for func, args in iter(input.get, 'STOP'):
+        result = func(*args)
+        output.put(result)
+        input.task_done()
+    input.task_done()
+
+
 if __name__ == '__main__':
     DROPBOX_FOLDER = u'C:/Users/rich/Documents/Dropbox/'
     OUTPUT_FOLDER = u'C:/Users/rich/Documents/distance_to_stream_outputs'
     TEMPORARY_FOLDER = os.path.join(OUTPUT_FOLDER, 'temp')
     LAND_USE_FOLDER = os.path.join(OUTPUT_FOLDER, 'land_use_directory')
+    NUMBER_OF_PROCESSES = 4
 
     for tmp_variable in ['TMP', 'TEMP', 'TMPDIR']:
 
@@ -657,22 +667,22 @@ if __name__ == '__main__':
         'temporary_file_directory': TEMPORARY_FOLDER,
         'output_file_directory': OUTPUT_FOLDER,
         'land_use_directory': LAND_USE_FOLDER,
-        'number_of_steps': 20,
+        'number_of_steps': 5,
     }
     
     willamette_local_args = {
         u'convert_from_lulc_codes': range(51,66) + range(62, 65),  #read from biophysical table
         u'convert_to_lulc_code':87, #some other kind of crop 71, #this is 'field crop'
-        u'biophysical_table_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Freshwater/biophysical_table.csv",
-        u'dem_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Freshwater/dem/w001001.adf",
-        u'erodibility_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Freshwater/erodibility/w001001.adf",
-        u'erosivity_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Freshwater/erosivity/w001001.adf",
+        u'biophysical_table_uri': "C:/Users/rich\Documents/Base_Data/Freshwater/biophysical_table.csv",
+        u'dem_uri': "C:/Users/rich\Documents/Base_Data/Freshwater/dem/w001001.adf",
+        u'erodibility_uri': "C:/Users/rich\Documents/Base_Data/Freshwater/erodibility/w001001.adf",
+        u'erosivity_uri': "C:/Users/rich\Documents/Base_Data/Freshwater/erosivity/w001001.adf",
         u'ic_0_param': u'0.5',
         u'k_param': u'2',
-        u'landuse_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Terrestrial/lulc_samp_cur/w001001.adf",
+        u'landuse_uri': "C:/Users/rich\Documents/Base_Data/Terrestrial/lulc_samp_cur/w001001.adf",
         u'sdr_max': u'0.8',
         u'threshold_flow_accumulation': 1000,
-        u'watersheds_uri': "C:/InVEST_dev181_3_0_1 [e91e64ed4c6d]_x86/Base_Data/Freshwater/watersheds.shp",
+        u'watersheds_uri': "C:/Users/rich\Documents/Base_Data/Freshwater/watersheds.shp",
         u'workspace_dir': os.path.join(OUTPUT_FOLDER, u'willamette_local/'),
         u'suffix': 'willamette_local',
     }
@@ -750,13 +760,16 @@ if __name__ == '__main__':
     }
     iowa_global_args.update(PARAMETERS)
     
-    worker_pool = raster_utils.PoolNoDaemon()
+    #worker_pool = multiprocessing.Pool()
+    input_queue = multiprocessing.JoinableQueue()
+    output_queue = multiprocessing.Queue()
+    
     for args, simulation in [
-        #(willamette_local_args, 'willamette_local_'),
+        (willamette_local_args, 'willamette_local_'),
         #(willamette_global_args, 'willamette_global_'),
-        (mg_args, 'mg_global'),
-        (iowa_global_args, 'iowa_global_'),
-        (iowa_national_args, 'iowa_national_'),
+        #(mg_args, 'mg_global'),
+        #(iowa_global_args, 'iowa_global_'),
+        #(iowa_national_args, 'iowa_national_'),
         ]:
     
         initialize_simulation(args)
@@ -766,30 +779,40 @@ if __name__ == '__main__':
             ("core", "core", 0),
             ("edge", "edge", 0),
             ("to_stream", "to_stream", 0),
-            ("fragmentation", "fragmentation", 0),
-            ("from_stream", "from_stream", 0),
-            ("from_stream", "from_stream_with_buffer_1", 1),
-            ("from_stream", "from_stream_with_buffer_2", 2),
-            ("from_stream", "from_stream_with_buffer_3", 3),
-            ("from_stream", "from_stream_with_buffer_9", 9),
+            #("fragmentation", "fragmentation", 0),
+            #("from_stream", "from_stream", 0),
+            #("from_stream", "from_stream_with_buffer_1", 1),
+            #("from_stream", "from_stream_with_buffer_2", 2),
+            #("from_stream", "from_stream_with_buffer_3", 3),
+            #("from_stream", "from_stream_with_buffer_9", 9),
             ]
 
         landcover_uri_dictionary = {}
 
         result_dictionary = {}
         for MODE, FILENAME, BUFFER in simulation_list:
-            result_dictionary[FILENAME] = worker_pool.apply_async(step_land_change, [args, simulation+FILENAME, MODE, BUFFER])
+            input_queue.put((step_land_change, [args, simulation+FILENAME, MODE, BUFFER]))
+            #result_dictionary[FILENAME] = worker_pool.apply_async(step_land_change, [args, simulation+FILENAME, MODE, BUFFER])
  
+        for _ in xrange(NUMBER_OF_PROCESSES):
+            multiprocessing.Process(target=worker, args=(input_queue, output_queue)).start()
+
         result_list = []
         for MODE, FILENAME, BUFFER in simulation_list:
-            landcover_uri_dictionary[FILENAME] = result_dictionary[FILENAME].get(0xFFFF)
+            landcover_uri_dictionary[FILENAME] = output_queue.get() #result_dictionary[FILENAME].get(0xFFFF)
             args_copy = args.copy()
             args_copy['workspace_dir'] = os.path.join(args['workspace_dir'], FILENAME)
-            result_list.append(worker_pool.apply_async(
-                run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
+            input_queue.put((run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
+            #result_list.append(worker_pool.apply_async(
+            #    run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
 
-        for result in result_list:
-            result.get(0xFFFF)
+        for _ in xrange(NUMBER_OF_PROCESSES):
+            input_queue.put('STOP')
+
+        input_queue.join()
+
+        #for result in result_list:
+        #    result.get(0xFFFF)
 
         #aggregate all the .csv results into one big csv
         #get area of a pixel
