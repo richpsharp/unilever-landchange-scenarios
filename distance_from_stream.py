@@ -659,8 +659,8 @@ def worker(input, output):
 
 
 if __name__ == '__main__':
-    DROPBOX_FOLDER = u'C:/Users/rich/Documents/Dropbox'
-    OUTPUT_FOLDER = u'C:/Users/rich/Documents/distance_to_stream_outputs'
+    DROPBOX_FOLDER = u'F:/Dropbox'
+    OUTPUT_FOLDER = u'e:/distance_to_stream_outputs'
     TEMPORARY_FOLDER = os.path.join(OUTPUT_FOLDER, 'temp')
     LAND_USE_FOLDER = os.path.join(OUTPUT_FOLDER, 'land_use_directory')
     NUMBER_OF_PROCESSES = 4
@@ -684,16 +684,16 @@ if __name__ == '__main__':
     willamette_local_args = {
         u'convert_from_lulc_codes': range(51,66) + range(62, 65),  #read from biophysical table
         u'convert_to_lulc_code':87, #some other kind of crop 71, #this is 'field crop'
-        u'biophysical_table_uri': "C:/Users/rich\Documents/Base_Data/Freshwater/biophysical_table.csv",
-        u'dem_uri': "C:/Users/rich\Documents/Base_Data/Freshwater/dem/w001001.adf",
-        u'erodibility_uri': "C:/Users/rich\Documents/Base_Data/Freshwater/erodibility/w001001.adf",
-        u'erosivity_uri': "C:/Users/rich\Documents/Base_Data/Freshwater/erosivity/w001001.adf",
+        u'biophysical_table_uri': "E:/repositories/Base_Data/Freshwater/biophysical_table.csv",
+        u'dem_uri': "E:/repositories/Base_Data/Freshwater/dem/w001001.adf",
+        u'erodibility_uri': "E:/repositories/Base_Data/Freshwater/erodibility/w001001.adf",
+        u'erosivity_uri': "E:/repositories/Base_Data/Freshwater/erosivity/w001001.adf",
         u'ic_0_param': u'0.5',
         u'k_param': u'2',
-        u'landuse_uri': "C:/Users/rich\Documents/Base_Data/Terrestrial/lulc_samp_cur/w001001.adf",
+        u'landuse_uri': "E:/repositories/Base_Data/Terrestrial/lulc_samp_cur/w001001.adf",
         u'sdr_max': u'0.8',
         u'threshold_flow_accumulation': 1000,
-        u'watersheds_uri': "C:/Users/rich\Documents/Base_Data/Freshwater/watersheds.shp",
+        u'watersheds_uri': "E:/repositories/Base_Data/Freshwater/watersheds.shp",
         u'workspace_dir': os.path.join(OUTPUT_FOLDER, u'willamette_local/'),
         u'suffix': 'willamette_local',
     }
@@ -703,15 +703,15 @@ if __name__ == '__main__':
         u'convert_from_lulc_codes': range(1, 5), #read from biophysical table
         u'convert_to_lulc_code':12, #this is 'field crop'
         u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/biophysical_coeffs_Brazil_Unilever.csv"),
-        u'dem_uri': "C:/Users/rich/Documents/Base_Data/Freshwater/dem",
-        u'erodibility_uri': "C:/Users/rich/Documents/Willamette_global_Unilever/erodibility_HWSD_Will.tif",
-        u'erosivity_uri': "C:/Users/rich/Documents/Willamette_global_Unilever/erosivity_Will_UTM.tif",
+        u'dem_uri': "E:/repositories/Base_Data/Freshwater/dem",
+        u'erodibility_uri': "E:/repositories/Willamette_global_Unilever/erodibility_HWSD_Will.tif",
+        u'erosivity_uri': "E:/repositories/Willamette_global_Unilever/erosivity_Will_UTM.tif",
         u'ic_0_param': u'0.5',
         u'k_param': u'2',
-        u'landuse_uri': "C:/Users/rich/Documents/Willamette_global_Unilever/MCD12Q1_type1_2012_Willamette_UTM.tif",
+        u'landuse_uri': "E:/repositories/Willamette_global_Unilever/MCD12Q1_type1_2012_Willamette_UTM.tif",
         u'sdr_max': u'0.8',
         u'threshold_flow_accumulation': 1000,
-        u'watersheds_uri': "C:/Users/rich/Documents/Base_Data/Freshwater/watersheds.shp",
+        u'watersheds_uri': "E:/repositories/Base_Data/Freshwater/watersheds.shp",
         u'workspace_dir': os.path.join(OUTPUT_FOLDER, u'willamette_global/'),
         u'suffix': 'willamette_global',
     }
@@ -773,7 +773,7 @@ if __name__ == '__main__':
     
     #worker_pool = multiprocessing.Pool()
     for args, simulation in [
-        #(willamette_local_args, 'willamette_local_'),
+        (willamette_local_args, 'willamette_local_'),
         (willamette_global_args, 'willamette_global_'),
         #(mg_args, 'mg_global'),
         #(iowa_global_args, 'iowa_global_'),
