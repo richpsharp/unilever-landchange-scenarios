@@ -678,7 +678,7 @@ if __name__ == '__main__':
         'temporary_file_directory': TEMPORARY_FOLDER,
         'output_file_directory': OUTPUT_FOLDER,
         'land_use_directory': LAND_USE_FOLDER,
-        'number_of_steps': 5,
+        'number_of_steps': 2,
     }
     
     willamette_local_args = {
@@ -771,13 +771,19 @@ if __name__ == '__main__':
     }
     iowa_global_args.update(PARAMETERS)
     
+    if os.path.exists(OUTPUT_FOLDER):
+        backup_folder = os.path.join(os.path.split(OUTPUT_FOLDER)[0], 'distance_to_stream_backup')
+        if os.path.exists(backup_folder):
+            shutil.rmtree(backup_folder)
+        os.rename(OUTPUT_FOLDER, backup_folder)
+
     #worker_pool = multiprocessing.Pool()
     for args, simulation in [
         #(willamette_local_args, 'willamette_local_'),
-        (willamette_global_args, 'willamette_global_'),
-        #(mg_args, 'mg_global'),
-        #(iowa_global_args, 'iowa_global_'),
-        #(iowa_national_args, 'iowa_national_'),
+        #(willamette_global_args, 'willamette_global_'),
+        (mg_args, 'mg_global'),
+        (iowa_global_args, 'iowa_global_'),
+        (iowa_national_args, 'iowa_national_'),
         ]:
     
         initialize_simulation(args)
