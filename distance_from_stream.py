@@ -659,7 +659,7 @@ def worker(input, output):
 
 
 if __name__ == '__main__':
-    DROPBOX_FOLDER = u'F:/Dropbox'
+    DROPBOX_FOLDER = u'e:/dropboxcopy'
     OUTPUT_FOLDER = u'e:/distance_to_stream_outputs'
     TEMPORARY_FOLDER = os.path.join(OUTPUT_FOLDER, 'temp')
     LAND_USE_FOLDER = os.path.join(OUTPUT_FOLDER, 'land_use_directory')
@@ -678,7 +678,10 @@ if __name__ == '__main__':
         'temporary_file_directory': TEMPORARY_FOLDER,
         'output_file_directory': OUTPUT_FOLDER,
         'land_use_directory': LAND_USE_FOLDER,
-        'number_of_steps': 2,
+        'number_of_steps': 20,
+        'calc_n': True,
+        'calc_p': False,
+        'threshold_flow_accumulation': 1000,
     }
     
     willamette_local_args = {
@@ -692,7 +695,7 @@ if __name__ == '__main__':
         u'k_param': u'2',
         u'landuse_uri': "E:/repositories/Base_Data/Terrestrial/lulc_samp_cur/w001001.adf",
         u'sdr_max': u'0.8',
-        u'threshold_flow_accumulation': 1000,
+        u'accum_threshold': u'1000',
         u'watersheds_uri': "E:/repositories/Base_Data/Freshwater/watersheds.shp",
         u'workspace_dir': os.path.join(OUTPUT_FOLDER, u'willamette_local/'),
         u'suffix': 'willamette_local',
@@ -718,6 +721,11 @@ if __name__ == '__main__':
     willamette_global_args.update(PARAMETERS)
 
     mg_args = {
+        'depth_to_root_rest_layer_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/soil_depth_MT.tif"), 
+        'eto_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/PET_MT.tif"),
+        'pawc_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/PAWC_MT.tif"), 
+        'precipitation_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/precip_MT.tif"),
+        'seasonality_constant': 5,
         u'convert_from_lulc_codes': range(1, 5), #read from biophysical table
         u'convert_to_lulc_code':12, #this is 'field crop'
         u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/biophysical_coeffs_Brazil_Unilever.csv"),
@@ -736,9 +744,14 @@ if __name__ == '__main__':
     mg_args.update(PARAMETERS)
     
     iowa_national_args = {
+        'depth_to_root_rest_layer_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/soil_depth_STATSGO_Iowa_HUC8.tif"), 
+        'eto_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/eto_Iowa_HUC8_Hargreaves_PRISM.tif"),
+        'pawc_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/AWC_STATSGO_Iowa_HUC8.tif"), 
+        'precipitation_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/precip_PRISM_Iowa_HUC8.tif"),
+        'seasonality_constant': 5,
         u'convert_from_lulc_codes': [41, 42, 43, 90], #these are the forest types
         u'convert_to_lulc_code':82, #this is 'cultivated crops'
-        u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/biophysical_coeffs_Iowa_Unilever_national.csv"),
+        u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/biophysical_coeffs_Iowa_Unilever_national_rich_fake_data.csv"),
         u'dem_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/DEM_SRTM_Iowa_HUC8_v2_uncompressed_striped.tif"),
         u'erodibility_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/erodibility_STATSGO_Iowa_HUC8.tif"),
         u'erosivity_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/erosivity_Iowa_HUC8.tif"),
@@ -754,9 +767,14 @@ if __name__ == '__main__':
     iowa_national_args.update(PARAMETERS)
     
     iowa_global_args = {
+        'depth_to_root_rest_layer_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_global/soil_depth_HWSD_Iowa_HUC8.tif"), 
+        'eto_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_global/PET_CRU_2009_Iowa_HUC8.tif"),
+        'pawc_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_global/AWC_HWSD_Iowa_HUC8.tif"), 
+        'precipitation_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_global/precip_CRU_2009_Iowa_HUC8.tif"),
+        'seasonality_constant': 5,
         u'convert_from_lulc_codes': range(1, 5), #forest lulcs from biophysical table
         u'convert_to_lulc_code':12, #this is 'field crop'
-        u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_global/biophysical_coeffs_Iowa_Unilever_global.csv"),
+        u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_global/biophysical_coeffs_Iowa_Unilever_global_rich_fake_data.csv"),
         u'dem_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/DEM_SRTM_Iowa_HUC8_v2_uncompressed_striped.tif"),
         u'erodibility_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_global/erodibility_HWSD_Iowa_HUC8.tif"),
         u'erosivity_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/erosivity_Iowa_HUC8.tif"),
@@ -779,25 +797,25 @@ if __name__ == '__main__':
 
     #worker_pool = multiprocessing.Pool()
     for args, simulation in [
-        (willamette_local_args, 'willamette_local_'),
-        (willamette_global_args, 'willamette_global_'),
+        #(willamette_local_args, 'willamette_local_'),
+        #(willamette_global_args, 'willamette_global_'),
         #(mg_args, 'mg_global'),
-        #(iowa_global_args, 'iowa_global_'),
-        #(iowa_national_args, 'iowa_national_'),
+        (iowa_global_args, 'iowa_global_'),
+        (iowa_national_args, 'iowa_national_'),
         ]:
     
         initialize_simulation(args)
 
         simulation_list = [
-            ("ag", "ag", 0),
-            ("core", "core", 0),
-            ("edge", "edge", 0),
-            ("to_stream", "to_stream", 0),
+            #("ag", "ag", 0),
+            #("core", "core", 0),
+            #("edge", "edge", 0),
+            #("to_stream", "to_stream", 0),
             #("fragmentation", "fragmentation", 0),
             #("from_stream", "from_stream", 0),
-            #("from_stream", "from_stream_with_buffer_1", 1),
-            #("from_stream", "from_stream_with_buffer_2", 2),
-            #("from_stream", "from_stream_with_buffer_3", 3),
+            ("from_stream", "from_stream_with_buffer_1", 1),
+            ("from_stream", "from_stream_with_buffer_2", 2),
+            ("from_stream", "from_stream_with_buffer_3", 3),
             #("from_stream", "from_stream_with_buffer_9", 9),
             ]
 
