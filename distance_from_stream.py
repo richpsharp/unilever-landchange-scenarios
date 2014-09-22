@@ -5,7 +5,6 @@ import shutil
 import math
 import multiprocessing
 
-
 import gdal
 import numpy
 
@@ -13,6 +12,7 @@ from invest_natcap.routing import routing_utils
 from invest_natcap import raster_utils
 from invest_natcap.scenario_generator import disk_sort
 import invest_natcap.sdr.sdr
+import invest_natcap.ndr.ndr
 
 
 def lowpriority():
@@ -588,7 +588,7 @@ def step_land_change_streams(
     return output_lulc_list
 
     
-def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
+def run_sdr_analysis(parameters, land_cover_uri_list, summary_table_uri):
     sed_export_table_uri = os.path.join(
         parameters['output_file_directory'], summary_table_uri)
     sed_export_table = open(sed_export_table_uri, 'w')
@@ -649,6 +649,70 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
                 print "can't remove directory " + str(e)
 
 
+def run_ndr_analysis(parameters, land_cover_uri_list, summary_table_uri):
+    ndr_export_table_uri = os.path.join(
+        parameters['output_file_directory'], summary_table_uri)
+    ndr_export_table = open(ndr_export_table_uri, 'w')
+    ndr_export_table.write('step,%s\n' % os.path.splitext(summary_table_uri)[0])
+
+#    parameters['_prepare'] = invest_natcap.ndr.ndr._prepare(**parameters)
+
+    for index, lulc_uri in enumerate(land_cover_uri_list):
+        ndr_args = {
+            'workspace_dir': os.path.join(parameters['workspace_dir'], str(index)),
+            'suffix': str(index),
+            'dem_uri': parameters['dem_uri'],
+            'lulc_uri': lulc_uri,
+            'watersheds_uri': parameters['watersheds_uri'],
+            'biophysical_table_uri': parameters['biophysical_table_uri'],
+            'threshold_flow_accumulation': parameters['threshold_flow_accumulation'],
+            'k_param': 2,
+#            '_prepare': parameters['_prepare'],
+            'calc_n': parameters['calc_n'],
+            'calc_p': parameters['calc_p'],
+            'depth_to_root_rest_layer_uri': parameters['depth_to_root_rest_layer_uri'],
+            'eto_uri': parameters['eto_uri'],
+            'k_param': parameters['k_param'],
+            'pawc_uri': parameters['pawc_uri'],
+            'precipitation_uri': parameters['precipitation_uri'],
+            'seasonality_constant': parameters['seasonality_constant']
+        }
+        invest_natcap.ndr.ndr.execute(ndr_args)
+
+        ndr_export_uri = os.path.join(ndr_args['workspace_dir'], 'output', "nut_export_%d.tif" % index)
+        nut_export_ds = gdal.Open(ndr_export_uri)
+        nut_export_band = nut_export_ds.GetRasterBand(1)
+        nodata = raster_utils.get_nodata_from_uri(ndr_export_uri)
+        nut_export_total = 0.0
+        print 'summing the nutiment export'
+
+        n_rows = nut_export_band.YSize
+        n_cols = nut_export_band.XSize
+        block_col_size, block_row_size = nut_export_band.GetBlockSize()
+        for global_block_row in xrange(int(numpy.ceil(float(n_rows) / block_row_size))):
+            for global_block_col in xrange(int(numpy.ceil(float(n_cols) / block_col_size))):
+                global_col = global_block_col*block_col_size
+                global_row = global_block_row*block_row_size
+                global_col_size = min((global_block_col+1)*block_col_size, n_cols) - global_col
+                global_row_size = min((global_block_row+1)*block_row_size, n_rows) - global_row
+
+        #for row_index in xrange(nut_export_ds.RasterYSize):
+                nut_array = nut_export_band.ReadAsArray(
+                    global_col, global_row, global_col_size, global_row_size)
+                nut_export_total += numpy.sum(nut_array[(nut_array != nodata) & (~numpy.isnan(nut_array))])
+        nut_export_table.write('%d,%f\n' % (index, nut_export_total))
+        nut_export_table.flush()
+
+        nut_export_band = None
+        gdal.Dataset.__swig_destroy__(nut_export_ds)
+        nut_export_ds = None
+        #no need to keep output and intermediate directories
+        for directory in [os.path.join(sdr_args['workspace_dir'], 'output'), os.path.join(sdr_args['workspace_dir'], 'intermediate')]:
+            try:
+                shutil.rmtree(directory)
+            except OSError as e:
+                print "can't remove directory " + str(e)
+
 def worker(input, output):
     lowpriority()
     for func, args in iter(input.get, 'STOP'):
@@ -660,7 +724,7 @@ def worker(input, output):
 
 if __name__ == '__main__':
     DROPBOX_FOLDER = u'e:/dropboxcopy'
-    OUTPUT_FOLDER = u'e:/distance_to_stream_outputs'
+    OUTPUT_FOLDER = u'e:/distance_to_stream_outputs_nutrient'
     TEMPORARY_FOLDER = os.path.join(OUTPUT_FOLDER, 'temp')
     LAND_USE_FOLDER = os.path.join(OUTPUT_FOLDER, 'land_use_directory')
     NUMBER_OF_PROCESSES = 4
@@ -685,6 +749,11 @@ if __name__ == '__main__':
     }
     
     willamette_local_args = {
+        'depth_to_root_rest_layer_uri': "E:/repositories/Base_Data/Freshwater/depth_to_root_rest_layer",
+        'eto_uri': "E:/repositories/Base_Data/Freshwater/eto",
+        'pawc_uri': "E:/repositories/Base_Data/Freshwater/pawc",
+        'precipitation_uri': "E:/repositories/Base_Data/Freshwater/precip",
+        'seasonality_constant': 5,
         u'convert_from_lulc_codes': range(51,66) + range(62, 65),  #read from biophysical table
         u'convert_to_lulc_code':87, #some other kind of crop 71, #this is 'field crop'
         u'biophysical_table_uri': "E:/repositories/Base_Data/Freshwater/biophysical_table.csv",
@@ -703,6 +772,10 @@ if __name__ == '__main__':
     willamette_local_args.update(PARAMETERS)
 
     willamette_global_args = {
+         'depth_to_root_rest_layer_uri': "E:/repositories/Base_Data/Freshwater/depth_to_root_rest_layer",
+        'eto_uri': "E:/repositories/Base_Data/Freshwater/eto",
+        'pawc_uri': "E:/repositories/Base_Data/Freshwater/pawc",
+        'precipitation_uri': "E:/repositories/Base_Data/Freshwater/precip",
         u'convert_from_lulc_codes': range(1, 5), #read from biophysical table
         u'convert_to_lulc_code':12, #this is 'field crop'
         u'biophysical_table_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/biophysical_coeffs_Brazil_Unilever.csv"),
@@ -797,25 +870,25 @@ if __name__ == '__main__':
 
     #worker_pool = multiprocessing.Pool()
     for args, simulation in [
-        #(willamette_local_args, 'willamette_local_'),
+        (willamette_local_args, 'willamette_local_'),
         #(willamette_global_args, 'willamette_global_'),
         #(mg_args, 'mg_global'),
-        (iowa_global_args, 'iowa_global_'),
-        (iowa_national_args, 'iowa_national_'),
+        #(iowa_global_args, 'iowa_global_'),
+        #(iowa_national_args, 'iowa_national_'),
         ]:
     
         initialize_simulation(args)
 
         simulation_list = [
-            #("ag", "ag", 0),
-            #("core", "core", 0),
-            #("edge", "edge", 0),
-            #("to_stream", "to_stream", 0),
-            #("fragmentation", "fragmentation", 0),
-            #("from_stream", "from_stream", 0),
-            ("from_stream", "from_stream_with_buffer_1", 1),
-            ("from_stream", "from_stream_with_buffer_2", 2),
-            ("from_stream", "from_stream_with_buffer_3", 3),
+            #("ag", "ag", 0, ['ndr', 'sdr']),
+            ("core", "core", 0, ['ndr']),
+            ("edge", "edge", 0, ['ndr']),
+            ("to_stream", "to_stream", 0, ['ndr']),
+            ("fragmentation", "fragmentation", 0, ['ndr']),
+            #("from_stream", "from_stream", 0, ['ndr', 'sdr']),
+            #("from_stream", "from_stream_with_buffer_1", 1, ['ndr', 'sdr']),
+            #("from_stream", "from_stream_with_buffer_2", 2, ['ndr', 'sdr']),
+            #("from_stream", "from_stream_with_buffer_3", 3, ['ndr', 'sdr']),
             #("from_stream", "from_stream_with_buffer_9", 9),
             ]
 
@@ -825,7 +898,7 @@ if __name__ == '__main__':
         output_queue = multiprocessing.Queue()
 
         result_dictionary = {}
-        for MODE, FILENAME, BUFFER in simulation_list:
+        for MODE, FILENAME, BUFFER, _ in simulation_list:
             input_queue.put((step_land_change, [args, simulation+FILENAME, MODE, BUFFER]))
             #result_dictionary[FILENAME] = worker_pool.apply_async(step_land_change, [args, simulation+FILENAME, MODE, BUFFER])
  
@@ -833,13 +906,16 @@ if __name__ == '__main__':
             multiprocessing.Process(target=worker, args=(input_queue, output_queue)).start()
 
         result_list = []
-        for MODE, FILENAME, BUFFER in simulation_list:
+        for MODE, FILENAME, BUFFER, SIMULATION_TYPES in simulation_list:
             landcover_uri_dictionary[FILENAME] = output_queue.get() #result_dictionary[FILENAME].get(0xFFFF)
             args_copy = args.copy()
             args_copy['workspace_dir'] = os.path.join(args['workspace_dir'], FILENAME)
-            input_queue.put((run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
+            if 'sdr' in SIMULATION_TYPES:
+                input_queue.put((run_sdr_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
+            if 'ndr' in SIMULATION_TYPES:
+                input_queue.put((run_ndr_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
             #result_list.append(worker_pool.apply_async(
-            #    run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
+            #    run_sdr_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
 
         for _ in xrange(NUMBER_OF_PROCESSES):
             input_queue.put('STOP')
