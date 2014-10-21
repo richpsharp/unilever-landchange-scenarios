@@ -1,6 +1,5 @@
 import os
 import hashlib
-import threading
 import shutil
 import math
 import multiprocessing
@@ -599,11 +598,11 @@ def run_sdr_analysis(parameters, land_cover_uri_list, summary_table_uri):
     for index, lulc_uri in enumerate(land_cover_uri_list):
         sdr_args = {
             'workspace_dir': os.path.join(parameters['workspace_dir'], str(index)),
-            'suffix': str(index),
+            'results_suffix': str(index),
             'dem_uri': parameters['dem_uri'],
             'erosivity_uri': parameters['erosivity_uri'],
             'erodibility_uri': parameters['erodibility_uri'],
-            'landuse_uri': lulc_uri,
+            'lulc_uri': lulc_uri,
             'watersheds_uri': parameters['watersheds_uri'],
             'biophysical_table_uri': parameters['biophysical_table_uri'],
             'threshold_flow_accumulation': parameters['threshold_flow_accumulation'],
@@ -660,7 +659,7 @@ def run_ndr_analysis(parameters, land_cover_uri_list, summary_table_uri):
     for index, lulc_uri in enumerate(land_cover_uri_list):
         ndr_args = {
             'workspace_dir': os.path.join(parameters['workspace_dir'], str(index)),
-            'suffix': str(index),
+            'results_suffix': str(index),
             'dem_uri': parameters['dem_uri'],
             'lulc_uri': lulc_uri,
             'watersheds_uri': parameters['watersheds_uri'],
@@ -679,12 +678,12 @@ def run_ndr_analysis(parameters, land_cover_uri_list, summary_table_uri):
         }
         invest_natcap.ndr.ndr.execute(ndr_args)
 
-        ndr_export_uri = os.path.join(ndr_args['workspace_dir'], 'output', "nut_export_%d.tif" % index)
+        ndr_export_uri = os.path.join(ndr_args['workspace_dir'], 'output', "n_export_%d.tif" % index)
         nut_export_ds = gdal.Open(ndr_export_uri)
         nut_export_band = nut_export_ds.GetRasterBand(1)
         nodata = raster_utils.get_nodata_from_uri(ndr_export_uri)
         nut_export_total = 0.0
-        print 'summing the nutiment export'
+        print 'summing the nitrogen/nutrient export'
 
         n_rows = nut_export_band.YSize
         n_cols = nut_export_band.XSize
@@ -700,14 +699,14 @@ def run_ndr_analysis(parameters, land_cover_uri_list, summary_table_uri):
                 nut_array = nut_export_band.ReadAsArray(
                     global_col, global_row, global_col_size, global_row_size)
                 nut_export_total += numpy.sum(nut_array[(nut_array != nodata) & (~numpy.isnan(nut_array))])
-        nut_export_table.write('%d,%f\n' % (index, nut_export_total))
-        nut_export_table.flush()
+        ndr_export_table.write('%d,%f\n' % (index, nut_export_total))
+        ndr_export_table.flush()
 
         nut_export_band = None
         gdal.Dataset.__swig_destroy__(nut_export_ds)
         nut_export_ds = None
         #no need to keep output and intermediate directories
-        for directory in [os.path.join(sdr_args['workspace_dir'], 'output'), os.path.join(sdr_args['workspace_dir'], 'intermediate')]:
+        for directory in [os.path.join(ndr_args['workspace_dir'], 'output'), os.path.join(ndr_args['workspace_dir'], 'intermediate')]:
             try:
                 shutil.rmtree(directory)
             except OSError as e:
@@ -724,7 +723,7 @@ def worker(input, output):
 
 if __name__ == '__main__':
     DROPBOX_FOLDER = u'e:/dropboxcopy'
-    OUTPUT_FOLDER = u'e:/distance_to_stream_outputs_nutrient'
+    OUTPUT_FOLDER = u'e:/distance_to_stream_outputs'
     TEMPORARY_FOLDER = os.path.join(OUTPUT_FOLDER, 'temp')
     LAND_USE_FOLDER = os.path.join(OUTPUT_FOLDER, 'land_use_directory')
     NUMBER_OF_PROCESSES = 4
@@ -767,7 +766,7 @@ if __name__ == '__main__':
         u'accum_threshold': u'1000',
         u'watersheds_uri': "E:/repositories/Base_Data/Freshwater/watersheds.shp",
         u'workspace_dir': os.path.join(OUTPUT_FOLDER, u'willamette_local/'),
-        u'suffix': 'willamette_local',
+        u'results_suffix': 'willamette_local',
     }
     willamette_local_args.update(PARAMETERS)
 
@@ -789,7 +788,7 @@ if __name__ == '__main__':
         u'threshold_flow_accumulation': 1000,
         u'watersheds_uri': "E:/repositories/Base_Data/Freshwater/watersheds.shp",
         u'workspace_dir': os.path.join(OUTPUT_FOLDER, u'willamette_global/'),
-        u'suffix': 'willamette_global',
+        u'results_suffix': 'willamette_global',
     }
     willamette_global_args.update(PARAMETERS)
 
@@ -812,7 +811,7 @@ if __name__ == '__main__':
         u'threshold_flow_accumulation': 1000,
         u'watersheds_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_MatoGrosso_global/Mato_Grosso.shp"),
         u'workspace_dir': os.path.join(OUTPUT_FOLDER, u'Mato_Grosso_global/'),
-        u'suffix': 'mato_grosso',
+        u'results_suffix': 'mato_grosso',
     }
     mg_args.update(PARAMETERS)
     
@@ -835,7 +834,7 @@ if __name__ == '__main__':
         u'threshold_flow_accumulation': u'1000',
         u'watersheds_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/HUC8_Iowa_intersect_dissolve.shp"),
         u'workspace_dir': os.path.join(OUTPUT_FOLDER, u'Iowa_national'),
-        u'suffix': 'iowa_local',
+        u'results_suffix': 'iowa_local',
     }
     iowa_national_args.update(PARAMETERS)
     
@@ -858,7 +857,7 @@ if __name__ == '__main__':
         u'threshold_flow_accumulation': u'1000',
         u'watersheds_uri': os.path.join(DROPBOX_FOLDER, u"Unilever_data_from_Stacie/Input_Iowa_national/HUC8_Iowa_intersect_dissolve.shp"),
         u'workspace_dir': os.path.join(OUTPUT_FOLDER, u'Iowa_global'),
-        u'suffix': 'iowa_global',
+        u'results_suffix': 'iowa_global',
     }
     iowa_global_args.update(PARAMETERS)
     
@@ -870,25 +869,25 @@ if __name__ == '__main__':
 
     #worker_pool = multiprocessing.Pool()
     for args, simulation in [
-        (willamette_local_args, 'willamette_local_'),
+        #(willamette_local_args, 'willamette_local_'),
         #(willamette_global_args, 'willamette_global_'),
         #(mg_args, 'mg_global'),
-        #(iowa_global_args, 'iowa_global_'),
-        #(iowa_national_args, 'iowa_national_'),
+        (iowa_global_args, 'iowa_global_'),
+        (iowa_national_args, 'iowa_national_'),
         ]:
     
         initialize_simulation(args)
 
         simulation_list = [
-            #("ag", "ag", 0, ['ndr', 'sdr']),
-            ("core", "core", 0, ['ndr']),
-            ("edge", "edge", 0, ['ndr']),
-            ("to_stream", "to_stream", 0, ['ndr']),
-            ("fragmentation", "fragmentation", 0, ['ndr']),
-            #("from_stream", "from_stream", 0, ['ndr', 'sdr']),
-            #("from_stream", "from_stream_with_buffer_1", 1, ['ndr', 'sdr']),
-            #("from_stream", "from_stream_with_buffer_2", 2, ['ndr', 'sdr']),
-            #("from_stream", "from_stream_with_buffer_3", 3, ['ndr', 'sdr']),
+            ("ag", "ag", 0, ['ndr',]),
+            ("core", "core", 0, ['ndr',]),
+            ("edge", "edge", 0, ['ndr',]),
+            ("to_stream", "to_stream", 0, ['ndr',]),
+            ("fragmentation", "fragmentation", 0, ['ndr',]),
+            ("from_stream", "from_stream", 0, ['ndr', 'sdr']),
+            ("from_stream", "from_stream_with_buffer_1", 1, ['ndr', 'sdr']),
+            ("from_stream", "from_stream_with_buffer_2", 2, ['ndr', 'sdr']),
+            ("from_stream", "from_stream_with_buffer_3", 3, ['ndr', 'sdr']),
             #("from_stream", "from_stream_with_buffer_9", 9),
             ]
 
@@ -900,30 +899,26 @@ if __name__ == '__main__':
         result_dictionary = {}
         for MODE, FILENAME, BUFFER, _ in simulation_list:
             input_queue.put((step_land_change, [args, simulation+FILENAME, MODE, BUFFER]))
-            #result_dictionary[FILENAME] = worker_pool.apply_async(step_land_change, [args, simulation+FILENAME, MODE, BUFFER])
  
         for _ in xrange(NUMBER_OF_PROCESSES):
             multiprocessing.Process(target=worker, args=(input_queue, output_queue)).start()
 
         result_list = []
         for MODE, FILENAME, BUFFER, SIMULATION_TYPES in simulation_list:
-            landcover_uri_dictionary[FILENAME] = output_queue.get() #result_dictionary[FILENAME].get(0xFFFF)
-            args_copy = args.copy()
-            args_copy['workspace_dir'] = os.path.join(args['workspace_dir'], FILENAME)
+            landcover_uri_dictionary[FILENAME] = output_queue.get()
             if 'sdr' in SIMULATION_TYPES:
-                input_queue.put((run_sdr_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
+                args_copy = args.copy()
+                args_copy['workspace_dir'] = os.path.join(args['workspace_dir'], FILENAME + '_sdr')
+                input_queue.put((run_sdr_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + "_sdr.csv"]))
             if 'ndr' in SIMULATION_TYPES:
-                input_queue.put((run_ndr_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
-            #result_list.append(worker_pool.apply_async(
-            #    run_sdr_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
+                args_copy = args.copy()
+                args_copy['workspace_dir'] = os.path.join(args['workspace_dir'], FILENAME + '_ndr')
+                input_queue.put((run_ndr_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + "_ndr.csv"]))
 
         for _ in xrange(NUMBER_OF_PROCESSES):
             input_queue.put('STOP')
 
         input_queue.join()
-
-        #for result in result_list:
-        #    result.get(0xFFFF)
 
         #aggregate all the .csv results into one big csv
         #get area of a pixel
@@ -932,35 +927,46 @@ if __name__ == '__main__':
         except IndexError:
             out_pixel_size = 1
     
-        simulation_result_dictionary = {
-            filename:['']*(args['number_of_steps']+1) for _, filename, _ in simulation_list
-        }
+        simulation_result_dictionary = {}
+        for _, filename, _, simulation_types in simulation_list:
+            for simulation_type in simulation_types:
+                simulation_result_dictionary[filename+simulation_type] = ['']*(args['number_of_steps']+1)
+        
+        #simulation_result_dictionary = {
+        #    filename:['']*(args['number_of_steps']+1) for _, filename, _, _ in simulation_list
+        #}
 
         print out_pixel_size
         #open all the csvs and dump them to a dictionary
         #loop through each step of the dictionary and output a row
 
-        for MODE, FILENAME, BUFFER in simulation_list:
-            summary_table_uri = simulation+FILENAME + ".csv"
-            sed_export_table_uri = os.path.join(
-                args['output_file_directory'], summary_table_uri)
-            sed_export_table = open(sed_export_table_uri, 'r')
-            sed_export_table.readline()
-            step_index = 0
-            for line in sed_export_table:
-                sediment_export_value = (''.join(line.split(',')[1:])).rstrip()
-                simulation_result_dictionary[FILENAME][step_index] = sediment_export_value
-                step_index += 1
-        #    sed_export_table.write('step,%s\n' % os.path.splitext(summary_table_uri)[0])
+        for MODE, FILENAME, BUFFER, simulation_types in simulation_list:
+            for simulation_type in simulation_types:
+                summary_table_uri = simulation+FILENAME + "_" + simulation_type + ".csv"
+                export_table_uri = os.path.join(
+                    args['output_file_directory'], summary_table_uri)
+                export_table = open(export_table_uri, 'r')
+                export_table.readline()
+                step_index = 0
+                for line in export_table:
+                    sediment_export_value = (''.join(line.split(',')[1:])).rstrip()
+                    simulation_result_dictionary[FILENAME+simulation_type][step_index] = sediment_export_value
+                    step_index += 1
         
         print simulation_result_dictionary
-        summary_table_uri = os.path.join(args['output_file_directory'], simulation + '_summary_table.csv')
-        summary_table = open(summary_table_uri, 'w')
-        summary_table.write('area converted (Ha),')
-        summary_table.write(','.join([filename for (_, filename, _) in simulation_list]) + '\n')
-        for step_number in xrange(args['number_of_steps'] + 1):
-            summary_table.write('%f' % (step_number * out_pixel_size))
-            for _, FILENAME, _ in simulation_list:
-                summary_table.write(','+str(simulation_result_dictionary[FILENAME][step_number]))
+        for simulation_type in ['sdr', 'ndr']:
+            summary_table_uri = os.path.join(args['output_file_directory'], simulation + '_' + simulation_type + '_summary_table.csv')
+            summary_table = open(summary_table_uri, 'w')
+            summary_table.write('area converted (Ha)')
+            for _, filename, _, simulation_types in simulation_list:
+                if simulation_type in simulation_types:
+                    summary_table.write(',' + filename)
             summary_table.write('\n')
-        summary_table.close()
+            
+            for step_number in xrange(args['number_of_steps'] + 1):
+                summary_table.write('%f' % (step_number * out_pixel_size))
+                for _, FILENAME, _, simulation_types in simulation_list:
+                    if simulation_type in simulation_types:
+                        summary_table.write(','+str(simulation_result_dictionary[FILENAME+simulation_type][step_number]))
+                summary_table.write('\n')
+            summary_table.close()
