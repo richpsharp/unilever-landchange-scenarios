@@ -65,18 +65,18 @@ def initialize_simulation(parameters):
     parameters['distance_from_ag_edge_filename'] = os.path.join(
         parameters['temporary_file_directory'], 'distance_from_ag_edge.tif')
 
-    aligned_lulc_uri =  os.path.join(
+    aligned_lulc_uri = os.path.join(
         parameters['temporary_file_directory'], 'aligned_lulc.tif')
 
     out_pixel_size = raster_utils.get_cell_size_from_uri(parameters['dem_uri'])
     tmp_dem_uri = raster_utils.temporary_filename()
     raster_utils.align_dataset_list(
-        [parameters['dem_uri'], args['landuse_uri']], [tmp_dem_uri, aligned_lulc_uri],
+        [parameters['dem_uri'], args['lulc_uri']], [tmp_dem_uri, aligned_lulc_uri],
         ['nearest'] * 2, out_pixel_size, 'dataset',
         0, dataset_to_bound_index=0, aoi_uri=args['watersheds_uri'])
     os.remove(tmp_dem_uri)
 
-    parameters['landuse_uri'] = aligned_lulc_uri
+    parameters['lulc_uri'] = aligned_lulc_uri
 
     dem_ds = gdal.Open(parameters['dem_uri'])
     dem_band = dem_ds.GetRasterBand(1)
@@ -126,8 +126,8 @@ def initialize_simulation(parameters):
         
     
     forest_pixel_size = raster_utils.get_cell_size_from_uri(
-        parameters['landuse_uri'])
-    lulc_nodata = raster_utils.get_nodata_from_uri(parameters['landuse_uri'])
+        parameters['lulc_uri'])
+    lulc_nodata = raster_utils.get_nodata_from_uri(parameters['lulc_uri'])
     
     forest_nodata = 255
     def classify_non_forest(lulc):
@@ -139,7 +139,7 @@ def initialize_simulation(parameters):
         return numpy.where(lulc == lulc_nodata, forest_nodata, forest_mask)
     
     raster_utils.vectorize_datasets(
-        [parameters['landuse_uri']],
+        [parameters['lulc_uri']],
         classify_non_forest, parameters['non_forest_uri'], gdal.GDT_Byte,
         forest_nodata, forest_pixel_size, 'intersection',
         dataset_to_align_index=0, vectorize_op=False,
@@ -158,7 +158,7 @@ def initialize_simulation(parameters):
         return numpy.where(lulc == lulc_nodata, ag_nodata, ag_mask)
 
     raster_utils.vectorize_datasets(
-        [parameters['landuse_uri']],
+        [parameters['lulc_uri']],
         classify_ag, parameters['non_ag_uri'], gdal.GDT_Byte,
         forest_nodata, forest_pixel_size, 'intersection',
         dataset_to_align_index=0, vectorize_op=False,
@@ -194,20 +194,20 @@ def calculate_pixels_per_step_for_full_conversion(
     return int(math.ceil(convertable_pixels / float(number_of_steps)))
 
 def step_land_change(
-    parameters, base_name, mode, stream_buffer_width):
+    parameters, base_name, mode, stream_buffer_width, base_filename):
     
     if mode in ['to_stream', 'from_stream']:
-        return step_land_change_streams(
-            parameters, base_name, mode, stream_buffer_width)
+        return (step_land_change_streams(
+            parameters, base_name, mode, stream_buffer_width), base_filename)
     elif mode in ['core', 'edge']:
-        return step_land_change_forest(
-            parameters, base_name, mode, stream_buffer_width)
+        return (step_land_change_forest(
+            parameters, base_name, mode, stream_buffer_width), base_filename)
     elif mode in ['fragmentation']:
-        return step_land_change_fragmentation(
-            parameters, base_name, mode)
+        return (step_land_change_fragmentation(
+            parameters, base_name, mode), base_filename)
     elif mode in ['ag']:
-        return step_land_change_ag(
-            parameters, base_name, mode, stream_buffer_width)
+        return (step_land_change_ag(
+            parameters, base_name, mode, stream_buffer_width), base_filename)
     else:
         raise Exception("Unknown mode %s" % mode)
     
@@ -220,7 +220,7 @@ def step_land_change_ag(
     conversion_nodata = 9999
 
     conversion_pixel_size = raster_utils.get_cell_size_from_uri(
-        parameters['landuse_uri'])
+        parameters['lulc_uri'])
 
     aligned_distance_from_ag_edge_filename = os.path.join(
         parameters['temporary_file_directory'], 'aligned_distance_from_ag_edge_%s.tif' % base_name)
@@ -228,7 +228,7 @@ def step_land_change_ag(
         parameters['temporary_file_directory'], 'aligned_landuse_%s.tif' % base_name)
 
     raster_utils.align_dataset_list(
-        [parameters['distance_from_ag_edge_filename'], parameters['landuse_uri']], 
+        [parameters['distance_from_ag_edge_filename'], parameters['lulc_uri']], 
         [aligned_distance_from_ag_edge_filename, aligned_landuse_uri], ['nearest']*2,
         conversion_pixel_size, 'intersection', 0,
         dataset_to_bound_index=None, aoi_uri=parameters['watersheds_uri'])
@@ -292,6 +292,9 @@ def step_land_change_ag(
         output_lulc_ds = gdal.Open(output_lulc_uri, gdal.GA_Update)
         output_lulc_band = output_lulc_ds.GetRasterBand(1)
         output_lulc_band.WriteArray(lulc_array)
+        output_lulc_band = None
+        gdal.Dataset.__swig_destroy__(output_lulc_ds)
+        output_lulc_ds = None
         output_lulc_list.append(output_lulc_uri)
     return output_lulc_list
 
@@ -309,13 +312,13 @@ def step_land_change_fragmentation(
         parameters['workspace_dir'], 'distance_from_forest.tif')
     conversion_nodata = direction_factor * 9999
     conversion_pixel_size = raster_utils.get_cell_size_from_uri(
-        parameters['landuse_uri'])
+        parameters['lulc_uri'])
     aligned_distance_from_forest_edge_filename = os.path.join(
         parameters['temporary_file_directory'], 'aligned_distance_from_forest_edge_%s.tif' % base_name)
     aligned_landuse_uri = os.path.join(
         parameters['temporary_file_directory'], 'aligned_landuse_%s.tif' % base_name)
     raster_utils.align_dataset_list(
-        [parameters['distance_from_forest_edge_filename'], parameters['landuse_uri']], 
+        [parameters['distance_from_forest_edge_filename'], parameters['lulc_uri']], 
         [aligned_distance_from_forest_edge_filename, aligned_landuse_uri], ['nearest']*2,
         conversion_pixel_size, 'intersection', 0,
         dataset_to_bound_index=None, aoi_uri=parameters['watersheds_uri'])
@@ -399,7 +402,9 @@ def step_land_change_fragmentation(
         output_lulc_ds = gdal.Open(output_lulc_uri, gdal.GA_Update)
         output_lulc_band = output_lulc_ds.GetRasterBand(1)
         output_lulc_band.WriteArray(lulc_array)
-        output_lulc_band.FlushCache()
+        output_lulc_band = None
+        gdal.Dataset.__swig_destroy__(output_lulc_ds)
+        output_lulc_ds = None
 
         output_lulc_list.append(output_lulc_uri)
     return output_lulc_list
@@ -417,7 +422,7 @@ def step_land_change_forest(
     conversion_nodata = direction_factor * 9999
 
     conversion_pixel_size = raster_utils.get_cell_size_from_uri(
-        parameters['landuse_uri'])
+        parameters['lulc_uri'])
 
     aligned_distance_from_forest_edge_filename = os.path.join(
         parameters['temporary_file_directory'], 'aligned_distance_from_forest_edge_%s.tif' % base_name)
@@ -425,7 +430,7 @@ def step_land_change_forest(
         parameters['temporary_file_directory'], 'aligned_landuse_%s.tif' % base_name)
 
     raster_utils.align_dataset_list(
-        [parameters['distance_from_forest_edge_filename'], parameters['landuse_uri']], 
+        [parameters['distance_from_forest_edge_filename'], parameters['lulc_uri']], 
         [aligned_distance_from_forest_edge_filename, aligned_landuse_uri], ['nearest']*2,
         conversion_pixel_size, 'intersection', 0,
         dataset_to_bound_index=None, aoi_uri=parameters['watersheds_uri'])
@@ -488,6 +493,9 @@ def step_land_change_forest(
         output_lulc_ds = gdal.Open(output_lulc_uri, gdal.GA_Update)
         output_lulc_band = output_lulc_ds.GetRasterBand(1)
         output_lulc_band.WriteArray(lulc_array)
+        output_lulc_band = None
+        gdal.Dataset.__swig_destroy__(output_lulc_ds)
+        output_lulc_ds = None
         output_lulc_list.append(output_lulc_uri)
     return output_lulc_list
 
@@ -511,8 +519,8 @@ def step_land_change_streams(
         parameters['temporary_file_directory'], 'conversion_priority_%s.tif' % base_name)
     conversion_nodata = direction_factor * 9999
     conversion_pixel_size = raster_utils.get_cell_size_from_uri(
-        parameters['landuse_uri'])
-    lulc_nodata = raster_utils.get_nodata_from_uri(parameters['landuse_uri'])
+        parameters['lulc_uri'])
+    lulc_nodata = raster_utils.get_nodata_from_uri(parameters['lulc_uri'])
     distance_nodata = raster_utils.get_nodata_from_uri(parameters['distance_from_stream_filename'])
 
     aligned_distance_from_stream_filename = os.path.join(
@@ -521,7 +529,7 @@ def step_land_change_streams(
         parameters['temporary_file_directory'], 'aligned_landuse_%s.tif' % base_name)
 
     raster_utils.align_dataset_list(
-        [parameters['distance_from_stream_filename'], parameters['landuse_uri']], 
+        [parameters['distance_from_stream_filename'], parameters['lulc_uri']], 
         [aligned_distance_from_stream_filename, aligned_landuse_uri], ['nearest']*2,
         conversion_pixel_size, 'intersection', 0,
         dataset_to_bound_index=None, aoi_uri=parameters['watersheds_uri'])
@@ -584,6 +592,9 @@ def step_land_change_streams(
         output_lulc_ds = gdal.Open(output_lulc_uri, gdal.GA_Update)
         output_lulc_band = output_lulc_ds.GetRasterBand(1)
         output_lulc_band.WriteArray(lulc_array)
+        output_lulc_band = None
+        gdal.Dataset.__swig_destroy__(output_lulc_ds)
+        output_lulc_ds = None
         output_lulc_list.append(output_lulc_uri)
     return output_lulc_list
 
@@ -599,14 +610,17 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
     for index, lulc_uri in enumerate(land_cover_uri_list):
         sdr_args = {
             'workspace_dir': os.path.join(parameters['workspace_dir'], str(index)),
-            'suffix': str(index),
+            'results_suffix': str(index),
             'dem_uri': parameters['dem_uri'],
             'erosivity_uri': parameters['erosivity_uri'],
             'erodibility_uri': parameters['erodibility_uri'],
-            'landuse_uri': lulc_uri,
+            'lulc_uri': lulc_uri,
             'watersheds_uri': parameters['watersheds_uri'],
             'biophysical_table_uri': parameters['biophysical_table_uri'],
             'threshold_flow_accumulation': parameters['threshold_flow_accumulation'],
+            'k_param': parameters['k_param'],
+            'ic_0_param': parameters['ic_0_param'],
+            'sdr_max': parameters['sdr_max'],
             '_prepare': parameters['_prepare'],
         }
         invest_natcap.sdr.sdr.execute(sdr_args)
@@ -656,12 +670,12 @@ def worker(input, output):
 
 
 if __name__ == '__main__':
-    BASE_FOLDER = u'C:/Users/rich/Documents/Dropbox/unilever_sdr_ndr_run_data/'
+    BASE_FOLDER = u"F:/Dropbox/unilever_sdr_ndr_run_data"
 
-    OUTPUT_FOLDER = 'C:/Users/rich/Documents/sdr_ndr_batch_runs'
+    OUTPUT_FOLDER = 'E:/sdr_ndr_batch_runs'
     TEMPORARY_FOLDER = os.path.join(OUTPUT_FOLDER, 'temp')
     LAND_USE_FOLDER = os.path.join(OUTPUT_FOLDER, 'land_use_directory')
-    NUMBER_OF_PROCESSES = 4
+    NUMBER_OF_PROCESSES = multiprocessing.cpu_count()
 
     for tmp_variable in ['TMP', 'TEMP', 'TMPDIR']:
         if tmp_variable in os.environ:
@@ -675,7 +689,7 @@ if __name__ == '__main__':
         'temporary_file_directory': TEMPORARY_FOLDER,
         'output_file_directory': OUTPUT_FOLDER,
         'land_use_directory': LAND_USE_FOLDER,
-        'number_of_steps': 1,
+        'number_of_steps': 20,
         'ic_0_param': u'0.5',
         'k_param': u'2',
         'sdr_max': u'0.8',
@@ -689,7 +703,7 @@ if __name__ == '__main__':
         u'dem_uri': os.path.join(BASE_FOLDER, "Input_Heilongjiang_global_Unilever_10_09_2014/SRTM_90m_Heilongjiang_final_basin.tif"''),
         u'erodibility_uri': os.path.join(BASE_FOLDER, 'Input_Heilongjiang_global_Unilever_10_09_2014/erodibility_Heilongjiang.tif'),
         u'erosivity_uri': os.path.join(BASE_FOLDER, 'Input_Heilongjiang_global_Unilever_10_09_2014/erosivity_Heilongjiang.tif'),
-        u'landuse_uri': os.path.join(BASE_FOLDER, 'Input_Heilongjiang_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_Heilongjiang_final_basin.tif'),
+        u'lulc_uri': os.path.join(BASE_FOLDER, 'Input_Heilongjiang_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_Heilongjiang_final_basin.tif'),
         u'watersheds_uri': os.path.join(BASE_FOLDER, 'Input_Heilongjiang_global_Unilever_10_09_2014/basin_final_Heilongjiang_smaller.shp'),
         u'workspace_dir': os.path.join(OUTPUT_FOLDER, 'heilongjiang_global'),
         u'suffix': '',
@@ -703,7 +717,7 @@ if __name__ == '__main__':
         u'dem_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/DEM_SRTM_Iowa_mosaic_v2_Albers_fill_proposed2.tif'),
         u'erodibility_uri': os.path.join(BASE_FOLDER, ''),
         u'erosivity_uri': os.path.join(BASE_FOLDER, ''),
-        u'landuse_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_Iowa_final_basin.tif'),
+        u'lulc_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_Iowa_final_basin.tif'),
         u'watersheds_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/Iowa_final_basin.shp'),
         u'workspace_dir': os.path.join(OUTPUT_FOLDER, 'iowa_global'),
         u'suffix': '',
@@ -717,7 +731,7 @@ if __name__ == '__main__':
         u'dem_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/SRTM_90m_Jiangxi_final_basin_fill.tif'),
         u'erodibility_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/erodibility_Jiangxi.tif'),
         u'erosivity_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/erosivity_Jiangxi.tif'),
-        u'landuse_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_Jiangxi_final_basin.tif'),
+        u'lulc_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_Jiangxi_final_basin.tif'),
         u'watersheds_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/Jiangxi_final_basin.shp'),
         u'workspace_dir': os.path.join(BASE_FOLDER, 'jiangxi_global'),
         u'suffix': '',
@@ -731,7 +745,7 @@ if __name__ == '__main__':
         u'dem_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/SRTM_90m_MatoGrosso_final_basins.tif'),
         u'erodibility_uri': os.path.join(BASE_FOLDER, ''),
         u'erosivity_uri': os.path.join(BASE_FOLDER, ''),
-        u'landuse_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_MatoGrosso_final_basins.tif'),
+        u'lulc_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_MatoGrosso_final_basins.tif'),
         u'watersheds_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/MatoGrosso_2_final_watersheds.shp'),
         u'workspace_dir': os.path.join(BASE_FOLDER, 'mato_grosso_global_'),
         u'suffix': '',
@@ -739,7 +753,7 @@ if __name__ == '__main__':
     mato_grosso_global_args.update(PARAMETERS)
     
     if os.path.exists(OUTPUT_FOLDER):
-        backup_folder = os.path.join(os.path.split(OUTPUT_FOLDER)[0], 'distance_to_stream_backup')
+        backup_folder = os.path.join(os.path.split(OUTPUT_FOLDER)[0], 'sdr_runs_backup')
         if os.path.exists(backup_folder):
             shutil.rmtree(backup_folder)
         os.rename(OUTPUT_FOLDER, backup_folder)
@@ -756,8 +770,8 @@ if __name__ == '__main__':
         simulation_list = [
             ("to_stream", "to_stream", 0),
             ("from_stream", "from_stream", 0),
-            ("from_stream", "from_stream", 1),
-            ("from_stream", "from_stream", 2),
+            ("from_stream", "from_stream_with_buffer_1", 1),
+            ("from_stream", "from_stream_with_buffer_2", 2),
             ("ag", "ag", 0),
             #("core", "core", 0),
             #("edge", "edge", 0),
@@ -773,19 +787,20 @@ if __name__ == '__main__':
         input_queue = multiprocessing.JoinableQueue()
         output_queue = multiprocessing.Queue()
 
-        result_dictionary = {}
-        for MODE, FILENAME, BUFFER in simulation_list:
-            input_queue.put((step_land_change, [args, simulation+FILENAME, MODE, BUFFER]))
- 
         for _ in xrange(NUMBER_OF_PROCESSES):
             multiprocessing.Process(target=worker, args=(input_queue, output_queue)).start()
 
-        result_list = []
+        result_dictionary = {}
         for MODE, FILENAME, BUFFER in simulation_list:
-            landcover_uri_dictionary[FILENAME] = output_queue.get()
+            input_queue.put((step_land_change, [args, simulation+FILENAME, MODE, BUFFER, FILENAME]))
+
+        #get as many results back as we put in
+        for _ in xrange(len(simulation_list)):
+            landcovers, FILENAME = output_queue.get()
+            landcover_uri_dictionary[FILENAME] = landcovers
             args_copy = args.copy()
             args_copy['workspace_dir'] = os.path.join(args['workspace_dir'], FILENAME)
-            #input_queue.put((run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
+            input_queue.put((run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
 
         for _ in xrange(NUMBER_OF_PROCESSES):
             input_queue.put('STOP')
