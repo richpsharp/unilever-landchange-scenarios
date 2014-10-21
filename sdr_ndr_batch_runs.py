@@ -607,9 +607,6 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
             'watersheds_uri': parameters['watersheds_uri'],
             'biophysical_table_uri': parameters['biophysical_table_uri'],
             'threshold_flow_accumulation': parameters['threshold_flow_accumulation'],
-            'k_param': 2,
-            'sdr_max': 0.8,
-            'ic_0_param': 0.5,
             '_prepare': parameters['_prepare'],
         }
         invest_natcap.sdr.sdr.execute(sdr_args)
@@ -661,7 +658,7 @@ def worker(input, output):
 if __name__ == '__main__':
     BASE_FOLDER = u'C:/Users/rich/Documents/Dropbox/unilever_sdr_ndr_run_data/'
 
-    OUTPUT_FOLDER = u'e:/distance_to_stream_outputs'
+    OUTPUT_FOLDER = 'C:/Users/rich/Documents/sdr_ndr_batch_runs'
     TEMPORARY_FOLDER = os.path.join(OUTPUT_FOLDER, 'temp')
     LAND_USE_FOLDER = os.path.join(OUTPUT_FOLDER, 'land_use_directory')
     NUMBER_OF_PROCESSES = 4
@@ -678,7 +675,7 @@ if __name__ == '__main__':
         'temporary_file_directory': TEMPORARY_FOLDER,
         'output_file_directory': OUTPUT_FOLDER,
         'land_use_directory': LAND_USE_FOLDER,
-        'number_of_steps': 2,
+        'number_of_steps': 1,
         'ic_0_param': u'0.5',
         'k_param': u'2',
         'sdr_max': u'0.8',
@@ -749,9 +746,9 @@ if __name__ == '__main__':
 
     for args, simulation in [
         (heilongjiang_global_args, 'heilongjiang_global_'),
-        (iowa_global_args, 'iowa_global_'),
         (jiangxi_global_args, 'jiangxi_global_'),
-        (mato_grosso_global_args, 'mato_grosso_global_'),    
+        #(iowa_global_args, 'iowa_global_'),
+        #(mato_grosso_global_args, 'mato_grosso_global_'),    
         ]:
     
         initialize_simulation(args)
@@ -788,7 +785,7 @@ if __name__ == '__main__':
             landcover_uri_dictionary[FILENAME] = output_queue.get()
             args_copy = args.copy()
             args_copy['workspace_dir'] = os.path.join(args['workspace_dir'], FILENAME)
-            input_queue.put((run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
+            #input_queue.put((run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
 
         for _ in xrange(NUMBER_OF_PROCESSES):
             input_queue.put('STOP')
