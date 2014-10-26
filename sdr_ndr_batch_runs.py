@@ -715,8 +715,8 @@ if __name__ == '__main__':
         u'convert_to_lulc_code': 12, #this is croplands
         u'biophysical_table_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/biophysical_coeffs_Iowa_Unilever_global.csv'),
         u'dem_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/DEM_SRTM_Iowa_mosaic_v2_Albers_fill_proposed2.tif'),
-        u'erodibility_uri': os.path.join(BASE_FOLDER, ''),
-        u'erosivity_uri': os.path.join(BASE_FOLDER, ''),
+        u'erodibility_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/erodibility_HWSD_Iowa_final_basin.tif'),
+        u'erosivity_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/erosivity_CRU_Iowa_final_basin.tif'),
         u'lulc_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_Iowa_final_basin.tif'),
         u'watersheds_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/Iowa_final_basin.shp'),
         u'workspace_dir': os.path.join(OUTPUT_FOLDER, 'iowa_global'),
@@ -743,8 +743,8 @@ if __name__ == '__main__':
         u'convert_to_lulc_code': 12, #this is croplands
         u'biophysical_table_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/biophysical_coeffs_Brazil_Unilever_global.csv'),
         u'dem_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/SRTM_90m_MatoGrosso_final_basins.tif'),
-        u'erodibility_uri': os.path.join(BASE_FOLDER, ''),
-        u'erosivity_uri': os.path.join(BASE_FOLDER, ''),
+        u'erodibility_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/erodibility_HWSD_MT_final_basins.tif'),
+        u'erosivity_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/erosivity_MT_final_basins.tif'),
         u'lulc_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_MatoGrosso_final_basins.tif'),
         u'watersheds_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/MatoGrosso_2_final_watersheds.shp'),
         u'workspace_dir': os.path.join(BASE_FOLDER, 'mato_grosso_global_'),
