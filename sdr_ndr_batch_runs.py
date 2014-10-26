@@ -1,10 +1,11 @@
+import json
 import os
 import hashlib
 import threading
 import shutil
 import math
 import multiprocessing
-
+import sys
 
 import gdal
 import numpy
@@ -670,12 +671,16 @@ def worker(input, output):
 
 
 if __name__ == '__main__':
-    BASE_FOLDER = u"F:/Dropbox/unilever_sdr_ndr_run_data"
-
-    OUTPUT_FOLDER = 'E:/sdr_ndr_batch_runs'
-    TEMPORARY_FOLDER = os.path.join(OUTPUT_FOLDER, 'temp')
-    LAND_USE_FOLDER = os.path.join(OUTPUT_FOLDER, 'land_use_directory')
-    NUMBER_OF_PROCESSES = multiprocessing.cpu_count()
+    try:
+        LOCAL_PARAMETER_FILE = sys.argv[1]
+        FILE_PARAMETERS = json.load(open(LOCAL_PARAMETER_FILE, 'r'))
+        BASE_FOLDER = FILE_PARAMETERS['BASE_FOLDER']
+        OUTPUT_FOLDER = FILE_PARAMETERS['OUTPUT_FOLDER']
+        TEMPORARY_FOLDER = os.path.join(OUTPUT_FOLDER, 'temp')
+        LAND_USE_FOLDER = os.path.join(OUTPUT_FOLDER, 'land_use_directory')
+    except (KeyError, IOError) as e:
+        print "Can't parse %s file" % LOCAL_PARAMETER_FILE
+        raise e
 
     for tmp_variable in ['TMP', 'TEMP', 'TMPDIR']:
         if tmp_variable in os.environ:
@@ -689,7 +694,7 @@ if __name__ == '__main__':
         'temporary_file_directory': TEMPORARY_FOLDER,
         'output_file_directory': OUTPUT_FOLDER,
         'land_use_directory': LAND_USE_FOLDER,
-        'number_of_steps': 20,
+        'number_of_steps': 1,
         'ic_0_param': u'0.5',
         'k_param': u'2',
         'sdr_max': u'0.8',
@@ -752,6 +757,15 @@ if __name__ == '__main__':
     }
     mato_grosso_global_args.update(PARAMETERS)
     
+    #check to make sure files exist
+    missing_file_list = []
+    for parameters in [heilongjiang_global_args, iowa_global_args, jiangxi_global_args, mato_grosso_global_args]:
+        for parameter_id in ['biophysical_table_uri', 'dem_uri', 'erodibility_uri', 'erosivity_uri', 'lulc_uri', 'watersheds_uri']:
+            if not os.path.isfile(parameters[parameter_id]):
+                missing_file_list.append(parameters[parameter_id])
+    if len(missing_file_list) > 0:
+        raise IOError("Missing some files: " + str(missing_file_list))
+    
     if os.path.exists(OUTPUT_FOLDER):
         backup_folder = os.path.join(os.path.split(OUTPUT_FOLDER)[0], 'sdr_runs_backup')
         if os.path.exists(backup_folder):
@@ -761,18 +775,18 @@ if __name__ == '__main__':
     for args, simulation in [
         (heilongjiang_global_args, 'heilongjiang_global_'),
         (jiangxi_global_args, 'jiangxi_global_'),
-        #(iowa_global_args, 'iowa_global_'),
-        #(mato_grosso_global_args, 'mato_grosso_global_'),    
+        (iowa_global_args, 'iowa_global_'),
+        (mato_grosso_global_args, 'mato_grosso_global_'),    
         ]:
     
         initialize_simulation(args)
 
         simulation_list = [
             ("to_stream", "to_stream", 0),
-            ("from_stream", "from_stream", 0),
-            ("from_stream", "from_stream_with_buffer_1", 1),
-            ("from_stream", "from_stream_with_buffer_2", 2),
-            ("ag", "ag", 0),
+            #("from_stream", "from_stream", 0),
+            #("from_stream", "from_stream_with_buffer_1", 1),
+            #("from_stream", "from_stream_with_buffer_2", 2),
+            #("ag", "ag", 0),
             #("core", "core", 0),
             #("edge", "edge", 0),
             #("fragmentation", "fragmentation", 0),
@@ -786,6 +800,8 @@ if __name__ == '__main__':
 
         input_queue = multiprocessing.JoinableQueue()
         output_queue = multiprocessing.Queue()
+
+        NUMBER_OF_PROCESSES = multiprocessing.cpu_count()
 
         for _ in xrange(NUMBER_OF_PROCESSES):
             multiprocessing.Process(target=worker, args=(input_queue, output_queue)).start()
@@ -810,7 +826,7 @@ if __name__ == '__main__':
         #aggregate all the .csv results into one big csv
         #get area of a pixel
         try:
-            out_pixel_size = raster_utils.get_cell_size_from_uri(landcover_uri_dictionary.values()[0][0])
+            out_pixel_size = raster_utils.get_cell_size_from_uri(landcover_uri_dictionary.values()[0])
         except IndexError:
             out_pixel_size = 1
     
@@ -839,8 +855,14 @@ if __name__ == '__main__':
         summary_table = open(summary_table_uri, 'w')
         summary_table.write('area converted (Ha),')
         summary_table.write(','.join([filename for (_, filename, _) in simulation_list]) + '\n')
+
+        pixels_per_step_to_convert = calculate_pixels_per_step_for_full_conversion(
+            landcover_uri_dictionary.values()[0], args['convert_from_lulc_codes'], args['number_of_steps'])
+        ha_per_step = pixels_per_step * out_pixel_size**2 / 100**2
+
+
         for step_number in xrange(args['number_of_steps'] + 1):
-            summary_table.write('%f' % (step_number * out_pixel_size))
+            summary_table.write('%f' % (step_number * ha_per_step))
             for _, FILENAME, _ in simulation_list:
                 summary_table.write(','+str(simulation_result_dictionary[FILENAME][step_number]))
             summary_table.write('\n')
