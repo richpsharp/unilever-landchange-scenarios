@@ -822,7 +822,7 @@ if __name__ == '__main__':
             landcover_uri_dictionary[FILENAME] = landcovers
             args_copy = args.copy()
             args_copy['workspace_dir'] = os.path.join(args['workspace_dir'], FILENAME)
-            input_queue.put((run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME].copy, simulation+FILENAME + ".csv"]))
+            input_queue.put((run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
 
         for _ in xrange(NUMBER_OF_PROCESSES):
             input_queue.put('STOP')
@@ -863,7 +863,7 @@ if __name__ == '__main__':
         summary_table.write(','.join([filename for (_, filename, _) in simulation_list]) + '\n')
 
         pixels_per_step_to_convert = calculate_pixels_per_step_for_full_conversion(
-            landcover_uri_dictionary.values()[0], args['convert_from_lulc_codes'], args['number_of_steps'])
+            landcover_uri_dictionary.values()[0][0], args['convert_from_lulc_codes'], args['number_of_steps'])
         ha_per_step = pixels_per_step * out_pixel_size**2 / 100**2
 
 
