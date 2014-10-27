@@ -682,6 +682,8 @@ if __name__ == '__main__':
         print "Can't parse %s file" % LOCAL_PARAMETER_FILE
         raise e
 
+
+
     for tmp_variable in ['TMP', 'TEMP', 'TMPDIR']:
         if tmp_variable in os.environ:
             print 'Updating os.environ["%s"]=%s to %s' % (tmp_variable, os.environ[tmp_variable], TEMPORARY_FOLDER)
@@ -689,12 +691,15 @@ if __name__ == '__main__':
             print 'Setting os.environ["%s"]=%s' % (tmp_variable, TEMPORARY_FOLDER)
 
         os.environ[tmp_variable] = TEMPORARY_FOLDER
+
+    NUMBER_OF_PROCESSES = multiprocessing.cpu_count()
+    print 'number of processes: ', NUMBER_OF_PROCESSES
     
     PARAMETERS = {
         'temporary_file_directory': TEMPORARY_FOLDER,
         'output_file_directory': OUTPUT_FOLDER,
         'land_use_directory': LAND_USE_FOLDER,
-        'number_of_steps': 1,
+        'number_of_steps': 20,
         'ic_0_param': u'0.5',
         'k_param': u'2',
         'sdr_max': u'0.8',
@@ -783,10 +788,11 @@ if __name__ == '__main__':
 
         simulation_list = [
             ("to_stream", "to_stream", 0),
-            #("from_stream", "from_stream", 0),
-            #("from_stream", "from_stream_with_buffer_1", 1),
-            #("from_stream", "from_stream_with_buffer_2", 2),
-            #("ag", "ag", 0),
+            ("from_stream", "from_stream", 0),
+#            ("from_stream", "from_stream_with_buffer_1", 1),
+            ("from_stream", "from_stream_with_buffer_1", 2),
+            ("from_stream", "from_stream_with_buffer_2", 3),
+            ("ag", "ag", 0),
             #("core", "core", 0),
             #("edge", "edge", 0),
             #("fragmentation", "fragmentation", 0),
@@ -801,9 +807,8 @@ if __name__ == '__main__':
         input_queue = multiprocessing.JoinableQueue()
         output_queue = multiprocessing.Queue()
 
-        NUMBER_OF_PROCESSES = multiprocessing.cpu_count()
-
-        for _ in xrange(NUMBER_OF_PROCESSES):
+        for process_id in xrange(NUMBER_OF_PROCESSES):
+            print 'starting process id:' , process_id
             multiprocessing.Process(target=worker, args=(input_queue, output_queue)).start()
 
         result_dictionary = {}
