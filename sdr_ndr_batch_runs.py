@@ -807,13 +807,14 @@ if __name__ == '__main__':
         input_queue = multiprocessing.JoinableQueue()
         output_queue = multiprocessing.Queue()
 
-        for process_id in xrange(NUMBER_OF_PROCESSES):
-            print 'starting process id:' , process_id
-            multiprocessing.Process(target=worker, args=(input_queue, output_queue)).start()
 
         result_dictionary = {}
         for MODE, FILENAME, BUFFER in simulation_list:
             input_queue.put((step_land_change, [args, simulation+FILENAME, MODE, BUFFER, FILENAME]))
+
+        for process_id in xrange(NUMBER_OF_PROCESSES):
+            print 'starting process id:' , process_id
+            multiprocessing.Process(target=worker, args=(input_queue, output_queue)).start()
 
         #get as many results back as we put in
         for _ in xrange(len(simulation_list)):
