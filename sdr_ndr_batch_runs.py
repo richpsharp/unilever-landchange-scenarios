@@ -822,7 +822,7 @@ if __name__ == '__main__':
             landcover_uri_dictionary[FILENAME] = landcovers
             args_copy = args.copy()
             args_copy['workspace_dir'] = os.path.join(args['workspace_dir'], FILENAME)
-            input_queue.put((run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
+            input_queue.put((run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME].copy, simulation+FILENAME + ".csv"]))
 
         for _ in xrange(NUMBER_OF_PROCESSES):
             input_queue.put('STOP')
@@ -832,7 +832,7 @@ if __name__ == '__main__':
         #aggregate all the .csv results into one big csv
         #get area of a pixel
         try:
-            out_pixel_size = raster_utils.get_cell_size_from_uri(landcover_uri_dictionary.values()[0])
+            out_pixel_size = raster_utils.get_cell_size_from_uri(landcover_uri_dictionary.values()[0][0])
         except IndexError:
             out_pixel_size = 1
     
