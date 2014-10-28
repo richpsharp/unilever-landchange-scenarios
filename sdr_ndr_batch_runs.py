@@ -661,6 +661,68 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
                 print "can't remove directory " + str(e)
 
 
+def run_nutrient_analysis(parameters, land_cover_uri_list, summary_table_uri):
+    nut_export_table_uri = os.path.join(
+        parameters['output_file_directory'], summary_table_uri)
+    nut_export_table = open(nut_export_table_uri, 'w')
+    nut_export_table.write('step,%s\n' % os.path.splitext(summary_table_uri)[0])
+
+    parameters['_prepare'] = invest_natcap.ndr.ndr._prepare(**parameters)
+
+    for index, lulc_uri in enumerate(land_cover_uri_list):
+        ndr_args = {
+            'workspace_dir': os.path.join(parameters['workspace_dir'], str(index)),
+            'results_suffix': str(index),
+            'calc_n': True,
+            'calc_p': False,
+            'dem_uri': parameters['dem_uri'],
+            'lulc_uri': lulc_uri,
+            'watersheds_uri': parameters['watersheds_uri'],
+            'biophysical_table_uri': parameters['biophysical_table_uri'],
+            'threshold_flow_accumulation': parameters['threshold_flow_accumulation'],
+            'k_param': parameters['k_param'],
+            'ic_0_param': parameters['ic_0_param'],
+            'subsurface_critical_length_n': '150',
+            'subsurface_eff_n': u'0.8',
+            '_prepare': parameters['_prepare'],
+        }
+        invest_natcap.ndr.ndr.execute(ndr_args)
+
+        ndr_export_uri = os.path.join(ndr_args['workspace_dir'], 'output', "nut_export_%d.tif" % index)
+        nut_export_ds = gdal.Open(ndr_export_uri)
+        nut_export_band = nut_export_ds.GetRasterBand(1)
+        nodata = raster_utils.get_nodata_from_uri(ndr_export_uri)
+        nut_export_total = 0.0
+        print 'summing the nutiment export'
+
+        n_rows = nut_export_band.YSize
+        n_cols = nut_export_band.XSize
+        block_col_size, block_row_size = nut_export_band.GetBlockSize()
+        for global_block_row in xrange(int(numpy.ceil(float(n_rows) / block_row_size))):
+            for global_block_col in xrange(int(numpy.ceil(float(n_cols) / block_col_size))):
+                global_col = global_block_col*block_col_size
+                global_row = global_block_row*block_row_size
+                global_col_size = min((global_block_col+1)*block_col_size, n_cols) - global_col
+                global_row_size = min((global_block_row+1)*block_row_size, n_rows) - global_row
+
+        #for row_index in xrange(nut_export_ds.RasterYSize):
+                nut_array = nut_export_band.ReadAsArray(
+                    global_col, global_row, global_col_size, global_row_size)
+                nut_export_total += numpy.sum(nut_array[(nut_array != nodata) & (~numpy.isnan(nut_array))])
+        nut_export_table.write('%d,%f\n' % (index, nut_export_total))
+        nut_export_table.flush()
+
+        nut_export_band = None
+        gdal.Dataset.__swig_destroy__(nut_export_ds)
+        nut_export_ds = None
+        #no need to keep output and intermediate directories
+        for directory in [os.path.join(ndr_args['workspace_dir'], 'output'), os.path.join(sdr_args['workspace_dir'], 'intermediate')]:
+            try:
+                shutil.rmtree(directory)
+            except OSError as e:
+                print "can't remove directory " + str(e)
+
+
 def worker(input, output):
     lowpriority()
     for func, args in iter(input.get, 'STOP'):
@@ -693,6 +755,8 @@ if __name__ == '__main__':
         os.environ[tmp_variable] = TEMPORARY_FOLDER
 
     NUMBER_OF_PROCESSES = multiprocessing.cpu_count()
+    RUN_SDR = True
+    RUN_NDR = True
     print 'number of processes: ', NUMBER_OF_PROCESSES
     
     PARAMETERS = {
@@ -822,7 +886,10 @@ if __name__ == '__main__':
             landcover_uri_dictionary[FILENAME] = landcovers
             args_copy = args.copy()
             args_copy['workspace_dir'] = os.path.join(args['workspace_dir'], FILENAME)
-            input_queue.put((run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
+            if RUN_SDR:
+                input_queue.put((run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
+            if RUN_NDR:
+                input_queue.put((run_nutrient_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
 
         for _ in xrange(NUMBER_OF_PROCESSES):
             input_queue.put('STOP')
@@ -844,32 +911,35 @@ if __name__ == '__main__':
         #open all the csvs and dump them to a dictionary
         #loop through each step of the dictionary and output a row
 
-        for MODE, FILENAME, BUFFER in simulation_list:
-            summary_table_uri = simulation+FILENAME + ".csv"
-            sed_export_table_uri = os.path.join(
-                args['output_file_directory'], summary_table_uri)
-            sed_export_table = open(sed_export_table_uri, 'r')
-            sed_export_table.readline()
-            step_index = 0
-            for line in sed_export_table:
-                sediment_export_value = (''.join(line.split(',')[1:])).rstrip()
-                simulation_result_dictionary[FILENAME][step_index] = sediment_export_value
-                step_index += 1
-        
-        print simulation_result_dictionary
-        summary_table_uri = os.path.join(args['output_file_directory'], simulation + '_summary_table.csv')
-        summary_table = open(summary_table_uri, 'w')
-        summary_table.write('area converted (Ha),')
-        summary_table.write(','.join([filename for (_, filename, _) in simulation_list]) + '\n')
+        if RUN_SDR:
+            for MODE, FILENAME, BUFFER in simulation_list:
+                summary_table_uri = simulation+FILENAME + ".csv"
+                sed_export_table_uri = os.path.join(
+                    args['output_file_directory'], summary_table_uri)
+                sed_export_table = open(sed_export_table_uri, 'r')
+                sed_export_table.readline()
+                step_index = 0
+                for line in sed_export_table:
+                    sediment_export_value = (''.join(line.split(',')[1:])).rstrip()
+                    simulation_result_dictionary[FILENAME][step_index] = sediment_export_value
+                    step_index += 1
+            
+            print simulation_result_dictionary
+            summary_table_uri = os.path.join(args['output_file_directory'], simulation + '_summary_table.csv')
+            summary_table = open(summary_table_uri, 'w')
+            summary_table.write('area converted (Ha),')
+            summary_table.write(','.join([filename for (_, filename, _) in simulation_list]) + '\n')
 
-        pixels_per_step_to_convert = calculate_pixels_per_step_for_full_conversion(
-            landcover_uri_dictionary.values()[0][0], args['convert_from_lulc_codes'], args['number_of_steps'])
-        ha_per_step = pixels_per_step * out_pixel_size**2 / 100**2
+            pixels_per_step_to_convert = calculate_pixels_per_step_for_full_conversion(
+                landcover_uri_dictionary.values()[0][0], args['convert_from_lulc_codes'], args['number_of_steps'])
+            ha_per_step = pixels_per_step * out_pixel_size**2 / 100**2
 
 
-        for step_number in xrange(args['number_of_steps'] + 1):
-            summary_table.write('%f' % (step_number * ha_per_step))
-            for _, FILENAME, _ in simulation_list:
-                summary_table.write(','+str(simulation_result_dictionary[FILENAME][step_number]))
-            summary_table.write('\n')
-        summary_table.close()
+            for step_number in xrange(args['number_of_steps'] + 1):
+                summary_table.write('%f' % (step_number * ha_per_step))
+                for _, FILENAME, _ in simulation_list:
+                    summary_table.write(','+str(simulation_result_dictionary[FILENAME][step_number]))
+                summary_table.write('\n')
+            summary_table.close()
+        if RUN_NDR:
+            pass
