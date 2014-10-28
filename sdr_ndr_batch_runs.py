@@ -688,12 +688,12 @@ def run_nutrient_analysis(parameters, land_cover_uri_list, summary_table_uri):
         }
         invest_natcap.ndr.ndr.execute(ndr_args)
 
-        ndr_export_uri = os.path.join(ndr_args['workspace_dir'], 'output', "nut_export_%d.tif" % index)
+        ndr_export_uri = os.path.join(ndr_args['workspace_dir'], 'output', "n_export_%d.tif" % index)
         nut_export_ds = gdal.Open(ndr_export_uri)
         nut_export_band = nut_export_ds.GetRasterBand(1)
         nodata = raster_utils.get_nodata_from_uri(ndr_export_uri)
         nut_export_total = 0.0
-        print 'summing the nutiment export'
+        print 'summing the nutrient export'
 
         n_rows = nut_export_band.YSize
         n_cols = nut_export_band.XSize
@@ -755,7 +755,7 @@ if __name__ == '__main__':
         os.environ[tmp_variable] = TEMPORARY_FOLDER
 
     NUMBER_OF_PROCESSES = multiprocessing.cpu_count()
-    RUN_SDR = True
+    RUN_SDR = False
     RUN_NDR = True
     print 'number of processes: ', NUMBER_OF_PROCESSES
     
@@ -769,6 +769,24 @@ if __name__ == '__main__':
         'sdr_max': u'0.8',
         'threshold_flow_accumulation': 1000,
     }
+    
+    willamette_args = {
+        u'convert_from_lulc_codes': range(1,30), #convert lulcs 1-10
+        u'convert_to_lulc_code': 50, #this is croplands
+        u'biophysical_table_uri': u'C:/Users/rpsharp/Documents/invest-natcap.invest-3/test/invest-data/Base_Data/Freshwater/biophysical_table.csv',
+        u'calc_n': True,
+        u'calc_p': False,
+        u'dem_uri': u'C:\\Users\\rpsharp\\Documents\\Base_Data\\Freshwater\\dem',
+        u'k_param': u'2',
+        u'lulc_uri': u'C:\\Users\\rpsharp\\Documents\\Base_Data\\Freshwater\\landuse_90',
+        u'subsurface_critical_length_n': u'150',
+        u'subsurface_eff_n': u'0.8',
+        u'threshold_flow_accumulation': u'1000',
+        u'watersheds_uri': u'C:\\Users\\rpsharp\\Documents\\Base_Data\\Freshwater\\watersheds.shp',
+        u'workspace_dir': u'C:\\Users\\rpsharp\\Documents\\ndr_simulations',
+        u'suffix': '',
+    }
+    willamette_args.update(PARAMETERS)
     
     heilongjiang_global_args = {
         u'convert_from_lulc_codes': range(1,11), #convert lulcs 1-10
@@ -807,7 +825,7 @@ if __name__ == '__main__':
         u'erosivity_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/erosivity_Jiangxi.tif'),
         u'lulc_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_Jiangxi_final_basin.tif'),
         u'watersheds_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/Jiangxi_final_basin.shp'),
-        u'workspace_dir': os.path.join(BASE_FOLDER, 'jiangxi_global'),
+        u'workspace_dir': os.path.join(OUTPUT_FOLDER, 'jiangxi_global'),
         u'suffix': '',
     }
     jiangxi_global_args.update(PARAMETERS)
@@ -821,7 +839,7 @@ if __name__ == '__main__':
         u'erosivity_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/erosivity_MT_final_basins.tif'),
         u'lulc_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_MatoGrosso_final_basins.tif'),
         u'watersheds_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/MatoGrosso_2_final_watersheds.shp'),
-        u'workspace_dir': os.path.join(BASE_FOLDER, 'mato_grosso_global_'),
+        u'workspace_dir': os.path.join(OUTPUT_FOLDER, 'mato_grosso_global_'),
         u'suffix': '',
     }
     mato_grosso_global_args.update(PARAMETERS)
@@ -842,10 +860,11 @@ if __name__ == '__main__':
         os.rename(OUTPUT_FOLDER, backup_folder)
 
     for args, simulation in [
-        (heilongjiang_global_args, 'heilongjiang_global_'),
-        (jiangxi_global_args, 'jiangxi_global_'),
-        (iowa_global_args, 'iowa_global_'),
-        (mato_grosso_global_args, 'mato_grosso_global_'),    
+        #(heilongjiang_global_args, 'heilongjiang_global_'),
+        #(jiangxi_global_args, 'jiangxi_global_'),
+        #(iowa_global_args, 'iowa_global_'),
+        #(mato_grosso_global_args, 'mato_grosso_global_'),  
+        (willamette_args, 'willamette_'),
         ]:
     
         initialize_simulation(args)
