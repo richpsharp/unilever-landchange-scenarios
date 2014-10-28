@@ -14,6 +14,7 @@ from invest_natcap.routing import routing_utils
 from invest_natcap import raster_utils
 from invest_natcap.scenario_generator import disk_sort
 import invest_natcap.sdr.sdr
+import invest_natcap.ndr.ndr
 
 
 def lowpriority():
@@ -716,7 +717,7 @@ def run_nutrient_analysis(parameters, land_cover_uri_list, summary_table_uri):
         gdal.Dataset.__swig_destroy__(nut_export_ds)
         nut_export_ds = None
         #no need to keep output and intermediate directories
-        for directory in [os.path.join(ndr_args['workspace_dir'], 'output'), os.path.join(sdr_args['workspace_dir'], 'intermediate')]:
+        for directory in [os.path.join(ndr_args['workspace_dir'], 'output'), os.path.join(ndr_args['workspace_dir'], 'intermediate')]:
             try:
                 shutil.rmtree(directory)
             except OSError as e:
@@ -772,7 +773,7 @@ if __name__ == '__main__':
     
     willamette_args = {
         u'convert_from_lulc_codes': range(1,30), #convert lulcs 1-10
-        u'convert_to_lulc_code': 50, #this is croplands
+        u'convert_to_lulc_code': 71, #this is croplands
         u'biophysical_table_uri': u'C:/Users/rpsharp/Documents/invest-natcap.invest-3/test/invest-data/Base_Data/Freshwater/biophysical_table.csv',
         u'calc_n': True,
         u'calc_p': False,
@@ -864,7 +865,7 @@ if __name__ == '__main__':
         #(jiangxi_global_args, 'jiangxi_global_'),
         #(iowa_global_args, 'iowa_global_'),
         #(mato_grosso_global_args, 'mato_grosso_global_'),  
-        (willamette_args, 'willamette_'),
+        #(willamette_args, 'willamette_'),
         ]:
     
         initialize_simulation(args)
