@@ -1,4 +1,4 @@
 {
-    "BASE_FOLDER": "/home/richpsharp_gmail_com/disk_1/unilever_sdr_ndr_run_data",
-    "OUTPUT_FOLDER": "/home/rob/disk_2/sdr_ndr_results"
+    "BASE_FOLDER": "/home/richpsharp_gmail_com/unilever-data-disk/unilever_sdr_ndr_run_data",
+    "OUTPUT_FOLDER": "/home/richpsharp_gmail_com/unilever-data-disk/unilever_potential_results"
 }

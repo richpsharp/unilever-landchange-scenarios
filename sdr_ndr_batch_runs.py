@@ -750,7 +750,7 @@ if __name__ == '__main__':
 
     mato_grosso_global_args = {
         u'convert_from_lulc_codes': range(1,11), #convert lulcs 1-10
-        u'convert_to_lulc_code': 12, #this is croplands
+        u'convert_to_lulc_code': 16, #this is croplands
         u'biophysical_table_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/biophysical_coeffs_Brazil_Unilever_global.csv'),
         u'dem_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/SRTM_90m_MatoGrosso_final_basins.tif'),
         u'erodibility_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/erodibility_HWSD_MT_final_basins.tif'),
@@ -761,10 +761,68 @@ if __name__ == '__main__':
         u'suffix': '',
     }
     mato_grosso_global_args.update(PARAMETERS)
-    
+
+
+    heilongjiang_global_potential_args = {
+        u'convert_from_lulc_codes': range(1,13), #convert lulcs 1-10
+        u'convert_to_lulc_code': 16, #this is croplands
+        u'biophysical_table_uri': os.path.join(BASE_FOLDER, 'Input_Heilongjiang_global_Unilever_10_09_2014/biophysical_coeffs_Heilongjang_Unilever_global_potential.csv'),
+        u'dem_uri': os.path.join(BASE_FOLDER, "Input_Heilongjiang_global_Unilever_10_09_2014/SRTM_90m_Heilongjiang_final_basin.tif"''),
+        u'erodibility_uri': os.path.join(BASE_FOLDER, 'Input_Heilongjiang_global_Unilever_10_09_2014/erodibility_Heilongjiang.tif'),
+        u'erosivity_uri': os.path.join(BASE_FOLDER, 'Input_Heilongjiang_global_Unilever_10_09_2014/erosivity_Heilongjiang.tif'),
+        u'lulc_uri': os.path.join(BASE_FOLDER, 'Input_Heilongjiang_global_Unilever_10_09_2014/heil_rc.tif'),
+        u'watersheds_uri': os.path.join(BASE_FOLDER, 'Input_Heilongjiang_global_Unilever_10_09_2014/basin_final_Heilongjiang_smaller.shp'),
+        u'workspace_dir': os.path.join(OUTPUT_FOLDER, 'heilongjiang_global'),
+        u'suffix': '',
+    }
+    heilongjiang_global_potential_args.update(PARAMETERS)
+
+    iowa_global_potential_args = {
+        u'convert_from_lulc_codes': range(1,13), #convert lulcs 1-10
+        u'convert_to_lulc_code': 16, #this is croplands
+        u'biophysical_table_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/biophysical_coeffs_Iowa_Unilever_global_potential.csv'),
+        u'dem_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/DEM_SRTM_Iowa_mosaic_v2_Albers_fill_proposed2.tif'),
+        u'erodibility_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/erodibility_HWSD_Iowa_final_basin.tif'),
+        u'erosivity_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/erosivity_CRU_Iowa_final_basin.tif'),
+        u'lulc_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/iowa_rc.tif'),
+        u'watersheds_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/Iowa_final_basin.shp'),
+        u'workspace_dir': os.path.join(OUTPUT_FOLDER, 'iowa_global'),
+        u'suffix': '',
+    }
+    iowa_global_potential_args.update(PARAMETERS)
+
+    jiangxi_global_potential_args = {
+        u'convert_from_lulc_codes': range(1,13), #convert lulcs 1-10
+        u'convert_to_lulc_code': 16, #this is croplands
+        u'biophysical_table_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/biophysical_coeffs_Jiangxi_Unilever_global_potential.csv'),
+        u'dem_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/SRTM_90m_Jiangxi_final_basin_fill.tif'),
+        u'erodibility_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/erodibility_Jiangxi.tif'),
+        u'erosivity_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/erosivity_Jiangxi.tif'),
+        u'lulc_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/jian_rc.tif'),
+        u'watersheds_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/Jiangxi_final_basin.shp'),
+        u'workspace_dir': os.path.join(BASE_FOLDER, 'jiangxi_global'),
+        u'suffix': '',
+    }
+    jiangxi_global_potential_args.update(PARAMETERS)
+
+    mato_grosso_global_potential_args = {
+        u'convert_from_lulc_codes': range(1,13), #convert lulcs 1-10
+        u'convert_to_lulc_code': 16, #this is croplands
+        u'biophysical_table_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/biophysical_coeffs_Brazil_Unilever_global_potential.csv'),
+        u'dem_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/SRTM_90m_MatoGrosso_final_basins.tif'),
+        u'erodibility_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/erodibility_HWSD_MT_final_basins.tif'),
+        u'erosivity_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/erosivity_MT_final_basins.tif'),
+        u'lulc_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/braz_rc.tif'),
+        u'watersheds_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/MatoGrosso_2_final_watersheds.shp'),
+        u'workspace_dir': os.path.join(BASE_FOLDER, 'mato_grosso_global_'),
+        u'suffix': '',
+    }
+    mato_grosso_global_potential_args.update(PARAMETERS)
+
+
     #check to make sure files exist
     missing_file_list = []
-    for parameters in [heilongjiang_global_args, iowa_global_args, jiangxi_global_args, mato_grosso_global_args]:
+    for parameters in [heilongjiang_global_potential_args, iowa_global_potential_args, jiangxi_global_potential_args, mato_grosso_global_potential_args]:
         for parameter_id in ['biophysical_table_uri', 'dem_uri', 'erodibility_uri', 'erosivity_uri', 'lulc_uri', 'watersheds_uri']:
             if not os.path.isfile(parameters[parameter_id]):
                 missing_file_list.append(parameters[parameter_id])
@@ -778,10 +836,10 @@ if __name__ == '__main__':
         os.rename(OUTPUT_FOLDER, backup_folder)
 
     for args, simulation in [
-        (heilongjiang_global_args, 'heilongjiang_global_'),
-        (jiangxi_global_args, 'jiangxi_global_'),
-        (iowa_global_args, 'iowa_global_'),
-        (mato_grosso_global_args, 'mato_grosso_global_'),    
+        (heilongjiang_global_potential_args, 'heilongjiang_global_potential_'),
+        (jiangxi_global_potential_args, 'jiangxi_global_potential_'),
+        (iowa_global_potential_args, 'iowa_global_potential_'),
+        (mato_grosso_global_potential_args, 'mato_grosso_global_potential_'),
         ]:
     
         initialize_simulation(args)
@@ -792,10 +850,10 @@ if __name__ == '__main__':
 #            ("from_stream", "from_stream_with_buffer_1", 1),
             ("from_stream", "from_stream_with_buffer_1", 2),
             ("from_stream", "from_stream_with_buffer_2", 3),
-            ("ag", "ag", 0),
-            #("core", "core", 0),
-            #("edge", "edge", 0),
-            #("fragmentation", "fragmentation", 0),
+            #("ag", "ag", 0),
+            ("core", "core", 0),
+            ("edge", "edge", 0),
+            ("fragmentation", "fragmentation", 0),
             #("from_stream", "from_stream_with_buffer_1", 1),
             #("from_stream", "from_stream_with_buffer_2", 2),
             #("from_stream", "from_stream_with_buffer_3", 3),
@@ -811,6 +869,7 @@ if __name__ == '__main__':
         result_dictionary = {}
         for MODE, FILENAME, BUFFER in simulation_list:
             input_queue.put((step_land_change, [args, simulation+FILENAME, MODE, BUFFER, FILENAME]))
+            pass
 
         for process_id in xrange(NUMBER_OF_PROCESSES):
             print 'starting process id:' , process_id
@@ -823,6 +882,7 @@ if __name__ == '__main__':
             args_copy = args.copy()
             args_copy['workspace_dir'] = os.path.join(args['workspace_dir'], FILENAME)
             input_queue.put((run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
+            pass
 
         for _ in xrange(NUMBER_OF_PROCESSES):
             input_queue.put('STOP')
