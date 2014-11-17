@@ -772,7 +772,7 @@ if __name__ == '__main__':
         u'erosivity_uri': os.path.join(BASE_FOLDER, 'Input_Heilongjiang_global_Unilever_10_09_2014/erosivity_Heilongjiang.tif'),
         u'lulc_uri': os.path.join(BASE_FOLDER, 'Input_Heilongjiang_global_Unilever_10_09_2014/heil_rc.tif'),
         u'watersheds_uri': os.path.join(BASE_FOLDER, 'Input_Heilongjiang_global_Unilever_10_09_2014/basin_final_Heilongjiang_smaller.shp'),
-        u'workspace_dir': os.path.join(OUTPUT_FOLDER, 'heilongjiang_global'),
+        u'workspace_dir': os.path.join(OUTPUT_FOLDER, 'heilongjiang_global_potential'),
         u'suffix': '',
     }
     heilongjiang_global_potential_args.update(PARAMETERS)
@@ -786,7 +786,7 @@ if __name__ == '__main__':
         u'erosivity_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/erosivity_CRU_Iowa_final_basin.tif'),
         u'lulc_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/iowa_rc.tif'),
         u'watersheds_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/Iowa_final_basin.shp'),
-        u'workspace_dir': os.path.join(OUTPUT_FOLDER, 'iowa_global'),
+        u'workspace_dir': os.path.join(OUTPUT_FOLDER, 'iowa_global_potential'),
         u'suffix': '',
     }
     iowa_global_potential_args.update(PARAMETERS)
@@ -800,7 +800,7 @@ if __name__ == '__main__':
         u'erosivity_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/erosivity_Jiangxi.tif'),
         u'lulc_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/jian_rc.tif'),
         u'watersheds_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/Jiangxi_final_basin.shp'),
-        u'workspace_dir': os.path.join(BASE_FOLDER, 'jiangxi_global'),
+        u'workspace_dir': os.path.join(BASE_FOLDER, 'jiangxi_global_potential'),
         u'suffix': '',
     }
     jiangxi_global_potential_args.update(PARAMETERS)
@@ -814,7 +814,7 @@ if __name__ == '__main__':
         u'erosivity_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/erosivity_MT_final_basins.tif'),
         u'lulc_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/braz_rc.tif'),
         u'watersheds_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/MatoGrosso_2_final_watersheds.shp'),
-        u'workspace_dir': os.path.join(BASE_FOLDER, 'mato_grosso_global_'),
+        u'workspace_dir': os.path.join(BASE_FOLDER, 'mato_grosso_global_potential'),
         u'suffix': '',
     }
     mato_grosso_global_potential_args.update(PARAMETERS)
@@ -892,8 +892,8 @@ if __name__ == '__main__':
         #aggregate all the .csv results into one big csv
         #get area of a pixel
         try:
-            out_pixel_size = raster_utils.get_cell_size_from_uri(landcover_uri_dictionary.values()[0])
-        except IndexError:
+            out_pixel_size = raster_utils.get_cell_size_from_uri(landcover_uri_dictionary.values()[0][0])
+        except:
             out_pixel_size = 1
     
         simulation_result_dictionary = {
@@ -922,10 +922,11 @@ if __name__ == '__main__':
         summary_table.write('area converted (Ha),')
         summary_table.write(','.join([filename for (_, filename, _) in simulation_list]) + '\n')
 
-        pixels_per_step_to_convert = calculate_pixels_per_step_for_full_conversion(
-            landcover_uri_dictionary.values()[0], args['convert_from_lulc_codes'], args['number_of_steps'])
-        ha_per_step = pixels_per_step * out_pixel_size**2 / 100**2
+        print landcover_uri_dictionary
 
+        pixels_per_step_to_convert = calculate_pixels_per_step_for_full_conversion(
+            landcover_uri_dictionary.values()[0][0], args['convert_from_lulc_codes'], args['number_of_steps'])
+        ha_per_step = pixels_per_step_to_convert * out_pixel_size**2 / 100**2
 
         for step_number in xrange(args['number_of_steps'] + 1):
             summary_table.write('%f' % (step_number * ha_per_step))
