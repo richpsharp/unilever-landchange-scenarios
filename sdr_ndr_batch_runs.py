@@ -72,9 +72,9 @@ def initialize_simulation(parameters):
     out_pixel_size = raster_utils.get_cell_size_from_uri(parameters['dem_uri'])
     tmp_dem_uri = raster_utils.temporary_filename()
     raster_utils.align_dataset_list(
-        [parameters['dem_uri'], args['lulc_uri']], [tmp_dem_uri, aligned_lulc_uri],
+        [parameters['dem_uri'], parameters['lulc_uri']], [tmp_dem_uri, aligned_lulc_uri],
         ['nearest'] * 2, out_pixel_size, 'dataset',
-        0, dataset_to_bound_index=0, aoi_uri=args['watersheds_uri'])
+        0, dataset_to_bound_index=0, aoi_uri=parameters['watersheds_uri'])
     os.remove(tmp_dem_uri)
 
     parameters['lulc_uri'] = aligned_lulc_uri
@@ -670,7 +670,9 @@ def worker(input, output):
     input.task_done()
 
 
-if __name__ == '__main__':
+def main():
+    raster_utils.email_report("Done with unilever runs", "3152624786@txt.att.net")
+
     try:
         LOCAL_PARAMETER_FILE = sys.argv[1]
         FILE_PARAMETERS = json.load(open(LOCAL_PARAMETER_FILE, 'r'))
@@ -819,29 +821,35 @@ if __name__ == '__main__':
     }
     mato_grosso_global_potential_args.update(PARAMETERS)
 
+    args_simulation_list = [
+        (heilongjiang_global_args, 'heilongjiang_global_'),
+        (jiangxi_global_args, 'jiangxi_global_'),
+        (iowa_global_args, 'iowa_global_'),
+        (mato_grosso_global_args, 'mato_grosso_global_'),
+        ]
+    '''        (heilongjiang_global_potential_args, 'heilongjiang_global_potential_'),
+        (jiangxi_global_potential_args, 'jiangxi_global_potential_'),
+        (iowa_global_potential_args, 'iowa_global_potential_'),
+        (mato_grosso_global_potential_args, 'mato_grosso_global_potential_'),'''
+
 
     #check to make sure files exist
     missing_file_list = []
-    for parameters in [heilongjiang_global_potential_args, iowa_global_potential_args, jiangxi_global_potential_args, mato_grosso_global_potential_args]:
+    print args_simulation_list
+    for parameters, _ in args_simulation_list:
         for parameter_id in ['biophysical_table_uri', 'dem_uri', 'erodibility_uri', 'erosivity_uri', 'lulc_uri', 'watersheds_uri']:
             if not os.path.isfile(parameters[parameter_id]):
                 missing_file_list.append(parameters[parameter_id])
     if len(missing_file_list) > 0:
         raise IOError("Missing some files: " + str(missing_file_list))
-    
+
     if os.path.exists(OUTPUT_FOLDER):
         backup_folder = os.path.join(os.path.split(OUTPUT_FOLDER)[0], 'sdr_runs_backup')
         if os.path.exists(backup_folder):
             shutil.rmtree(backup_folder)
         os.rename(OUTPUT_FOLDER, backup_folder)
 
-    for args, simulation in [
-        (heilongjiang_global_potential_args, 'heilongjiang_global_potential_'),
-        (jiangxi_global_potential_args, 'jiangxi_global_potential_'),
-        (iowa_global_potential_args, 'iowa_global_potential_'),
-        (mato_grosso_global_potential_args, 'mato_grosso_global_potential_'),
-        ]:
-    
+    for args, simulation in args_simulation_list:
         initialize_simulation(args)
 
         simulation_list = [
@@ -850,7 +858,7 @@ if __name__ == '__main__':
 #            ("from_stream", "from_stream_with_buffer_1", 1),
             ("from_stream", "from_stream_with_buffer_1", 2),
             ("from_stream", "from_stream_with_buffer_2", 3),
-            #("ag", "ag", 0),
+            ("ag", "ag", 0),
             ("core", "core", 0),
             ("edge", "edge", 0),
             ("fragmentation", "fragmentation", 0),
@@ -882,7 +890,6 @@ if __name__ == '__main__':
             args_copy = args.copy()
             args_copy['workspace_dir'] = os.path.join(args['workspace_dir'], FILENAME)
             input_queue.put((run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
-            pass
 
         for _ in xrange(NUMBER_OF_PROCESSES):
             input_queue.put('STOP')
@@ -934,3 +941,14 @@ if __name__ == '__main__':
                 summary_table.write(','+str(simulation_result_dictionary[FILENAME][step_number]))
             summary_table.write('\n')
         summary_table.close()
+
+
+
+if __name__ == '__main__':
+    try:
+        raster_utils.email_report("Starting unilever runs", "3152624786@txt.att.net")
+        main()
+        raster_utils.email_report("Done with unilever runs", "3152624786@txt.att.net")
+    except Exception as e:
+        raster_utils.email_report("Something broke on unilever runs, ABORTING", "3152624786@txt.att.net")
+        raise e
