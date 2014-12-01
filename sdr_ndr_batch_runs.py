@@ -826,11 +826,11 @@ def main():
         (jiangxi_global_args, 'jiangxi_global_'),
         (iowa_global_args, 'iowa_global_'),
         (mato_grosso_global_args, 'mato_grosso_global_'),
-        ]
-    '''        (heilongjiang_global_potential_args, 'heilongjiang_global_potential_'),
+        (heilongjiang_global_potential_args, 'heilongjiang_global_potential_'),
         (jiangxi_global_potential_args, 'jiangxi_global_potential_'),
         (iowa_global_potential_args, 'iowa_global_potential_'),
-        (mato_grosso_global_potential_args, 'mato_grosso_global_potential_'),'''
+        (mato_grosso_global_potential_args, 'mato_grosso_global_potential_'),
+        ]
 
 
     #check to make sure files exist
