@@ -30,10 +30,13 @@ def calculate_pixels_per_step_for_full_conversion(
 
 
 dem_lulc_list = [
-    ("C:/Users/rich/Documents/Dropbox/unilever_sdr_ndr_run_data/Input_Heilongjiang_global_Unilever_10_09_2014/SRTM_90m_Heilongjiang_final_basin.tif",
-    "C:/Users/rich/Documents/Dropbox/unilever_sdr_ndr_run_data/Input_Heilongjiang_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_Heilongjiang_final_basin.tif"),
-    ("C:/Users/rich/Documents/Dropbox/unilever_sdr_ndr_run_data/Input_Jiangxi_global_Unilever_10_09_2014/SRTM_90m_Jiangxi_final_basin_fill.tif",
-    "C:/Users/rich/Documents/Dropbox/unilever_sdr_ndr_run_data/Input_Jiangxi_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_Jiangxi_final_basin.tif")]
+    ("C:/Users/rich/Documents/Dropbox/unilever_sdr_ndr_run_data/Input_MatoGrosso_global_Unilever_10_09_2014/SRTM_90m_MatoGrosso_final_basins.tif",
+    "C:/Users/rich/Documents/Dropbox/unilever_sdr_ndr_run_data/Input_MatoGrosso_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_MatoGrosso_final_basins.tif"),
+#    ("C:/Users/rich/Documents/Dropbox/unilever_sdr_ndr_run_data/Input_Heilongjiang_global_Unilever_10_09_2014/SRTM_90m_Heilongjiang_final_basin.tif",
+#    "C:/Users/rich/Documents/Dropbox/unilever_sdr_ndr_run_data/Input_Heilongjiang_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_Heilongjiang_final_basin.tif"),
+#    ("C:/Users/rich/Documents/Dropbox/unilever_sdr_ndr_run_data/Input_Jiangxi_global_Unilever_10_09_2014/SRTM_90m_Jiangxi_final_basin_fill.tif",
+#    "C:/Users/rich/Documents/Dropbox/unilever_sdr_ndr_run_data/Input_Jiangxi_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_Jiangxi_final_basin.tif"),
+]
 
 for dem_uri, landuse_uri in dem_lulc_list:
     aligned_lulc_uri = raster_utils.temporary_filename()

@@ -14,6 +14,7 @@ from invest_natcap.routing import routing_utils
 from invest_natcap import raster_utils
 from invest_natcap.scenario_generator import disk_sort
 import invest_natcap.sdr.sdr
+import invest_natcap.ndr.ndr
 
 
 def lowpriority():
@@ -661,6 +662,68 @@ def run_sediment_analysis(parameters, land_cover_uri_list, summary_table_uri):
                 print "can't remove directory " + str(e)
 
 
+def run_nutrient_analysis(parameters, land_cover_uri_list, summary_table_uri):
+    nut_export_table_uri = os.path.join(
+        parameters['output_file_directory'], summary_table_uri)
+    nut_export_table = open(nut_export_table_uri, 'w')
+    nut_export_table.write('step,%s\n' % os.path.splitext(summary_table_uri)[0])
+
+    parameters['_prepare'] = invest_natcap.ndr.ndr._prepare(**parameters)
+
+    for index, lulc_uri in enumerate(land_cover_uri_list):
+        ndr_args = {
+            'workspace_dir': os.path.join(parameters['workspace_dir'], str(index)),
+            'results_suffix': str(index),
+            'calc_n': True,
+            'calc_p': False,
+            'dem_uri': parameters['dem_uri'],
+            'lulc_uri': lulc_uri,
+            'watersheds_uri': parameters['watersheds_uri'],
+            'biophysical_table_uri': parameters['biophysical_table_uri'],
+            'threshold_flow_accumulation': parameters['threshold_flow_accumulation'],
+            'k_param': parameters['k_param'],
+            'ic_0_param': parameters['ic_0_param'],
+            'subsurface_critical_length_n': '150',
+            'subsurface_eff_n': u'0.8',
+            '_prepare': parameters['_prepare'],
+        }
+        invest_natcap.ndr.ndr.execute(ndr_args)
+
+        ndr_export_uri = os.path.join(ndr_args['workspace_dir'], 'output', "n_export_%d.tif" % index)
+        nut_export_ds = gdal.Open(ndr_export_uri)
+        nut_export_band = nut_export_ds.GetRasterBand(1)
+        nodata = raster_utils.get_nodata_from_uri(ndr_export_uri)
+        nut_export_total = 0.0
+        print 'summing the nutrient export'
+
+        n_rows = nut_export_band.YSize
+        n_cols = nut_export_band.XSize
+        block_col_size, block_row_size = nut_export_band.GetBlockSize()
+        for global_block_row in xrange(int(numpy.ceil(float(n_rows) / block_row_size))):
+            for global_block_col in xrange(int(numpy.ceil(float(n_cols) / block_col_size))):
+                global_col = global_block_col*block_col_size
+                global_row = global_block_row*block_row_size
+                global_col_size = min((global_block_col+1)*block_col_size, n_cols) - global_col
+                global_row_size = min((global_block_row+1)*block_row_size, n_rows) - global_row
+
+        #for row_index in xrange(nut_export_ds.RasterYSize):
+                nut_array = nut_export_band.ReadAsArray(
+                    global_col, global_row, global_col_size, global_row_size)
+                nut_export_total += numpy.sum(nut_array[(nut_array != nodata) & (~numpy.isnan(nut_array))])
+        nut_export_table.write('%d,%f\n' % (index, nut_export_total))
+        nut_export_table.flush()
+
+        nut_export_band = None
+        gdal.Dataset.__swig_destroy__(nut_export_ds)
+        nut_export_ds = None
+        #no need to keep output and intermediate directories
+        for directory in [os.path.join(ndr_args['workspace_dir'], 'output'), os.path.join(ndr_args['workspace_dir'], 'intermediate')]:
+            try:
+                shutil.rmtree(directory)
+            except OSError as e:
+                print "can't remove directory " + str(e)
+
+
 def worker(input, output):
     lowpriority()
     for func, args in iter(input.get, 'STOP'):
@@ -695,6 +758,8 @@ def main():
         os.environ[tmp_variable] = TEMPORARY_FOLDER
 
     NUMBER_OF_PROCESSES = multiprocessing.cpu_count()
+    RUN_SDR = False
+    RUN_NDR = True
     print 'number of processes: ', NUMBER_OF_PROCESSES
     
     PARAMETERS = {
@@ -707,6 +772,24 @@ def main():
         'sdr_max': u'0.8',
         'threshold_flow_accumulation': 1000,
     }
+    
+    willamette_args = {
+        u'convert_from_lulc_codes': range(1,30), #convert lulcs 1-10
+        u'convert_to_lulc_code': 71, #this is croplands
+        u'biophysical_table_uri': u'C:/Users/rpsharp/Documents/invest-natcap.invest-3/test/invest-data/Base_Data/Freshwater/biophysical_table.csv',
+        u'calc_n': True,
+        u'calc_p': False,
+        u'dem_uri': u'C:\\Users\\rpsharp\\Documents\\Base_Data\\Freshwater\\dem',
+        u'k_param': u'2',
+        u'lulc_uri': u'C:\\Users\\rpsharp\\Documents\\Base_Data\\Freshwater\\landuse_90',
+        u'subsurface_critical_length_n': u'150',
+        u'subsurface_eff_n': u'0.8',
+        u'threshold_flow_accumulation': u'1000',
+        u'watersheds_uri': u'C:\\Users\\rpsharp\\Documents\\Base_Data\\Freshwater\\watersheds.shp',
+        u'workspace_dir': u'C:\\Users\\rpsharp\\Documents\\ndr_simulations',
+        u'suffix': '',
+    }
+    willamette_args.update(PARAMETERS)
     
     heilongjiang_global_args = {
         u'convert_from_lulc_codes': range(1,11), #convert lulcs 1-10
@@ -745,7 +828,7 @@ def main():
         u'erosivity_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/erosivity_Jiangxi.tif'),
         u'lulc_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_Jiangxi_final_basin.tif'),
         u'watersheds_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/Jiangxi_final_basin.shp'),
-        u'workspace_dir': os.path.join(BASE_FOLDER, 'jiangxi_global'),
+        u'workspace_dir': os.path.join(OUTPUT_FOLDER, 'jiangxi_global'),
         u'suffix': '',
     }
     jiangxi_global_args.update(PARAMETERS)
@@ -759,7 +842,7 @@ def main():
         u'erosivity_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/erosivity_MT_final_basins.tif'),
         u'lulc_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/MCD12Q1_2012_Type2_MatoGrosso_final_basins.tif'),
         u'watersheds_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/MatoGrosso_2_final_watersheds.shp'),
-        u'workspace_dir': os.path.join(BASE_FOLDER, 'mato_grosso_global_'),
+        u'workspace_dir': os.path.join(OUTPUT_FOLDER, 'mato_grosso_global_'),
         u'suffix': '',
     }
     mato_grosso_global_args.update(PARAMETERS)
@@ -889,7 +972,10 @@ def main():
             landcover_uri_dictionary[FILENAME] = landcovers
             args_copy = args.copy()
             args_copy['workspace_dir'] = os.path.join(args['workspace_dir'], FILENAME)
-            input_queue.put((run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
+            if RUN_SDR:
+                input_queue.put((run_sediment_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
+            if RUN_NDR:
+                input_queue.put((run_nutrient_analysis, [args_copy, landcover_uri_dictionary[FILENAME], simulation+FILENAME + ".csv"]))
 
         for _ in xrange(NUMBER_OF_PROCESSES):
             input_queue.put('STOP')
