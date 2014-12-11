@@ -906,13 +906,13 @@ def main():
 
     args_simulation_list = [
         (heilongjiang_global_args, 'heilongjiang_global_'),
-        (jiangxi_global_args, 'jiangxi_global_'),
-        (iowa_global_args, 'iowa_global_'),
-        (mato_grosso_global_args, 'mato_grosso_global_'),
-        (heilongjiang_global_potential_args, 'heilongjiang_global_potential_'),
-        (jiangxi_global_potential_args, 'jiangxi_global_potential_'),
+        #(jiangxi_global_args, 'jiangxi_global_'),
+        #(iowa_global_args, 'iowa_global_'),
+        #(mato_grosso_global_args, 'mato_grosso_global_'),
+        #(heilongjiang_global_potential_args, 'heilongjiang_global_potential_'),
+        #(jiangxi_global_potential_args, 'jiangxi_global_potential_'),
         (iowa_global_potential_args, 'iowa_global_potential_'),
-        (mato_grosso_global_potential_args, 'mato_grosso_global_potential_'),
+        #(mato_grosso_global_potential_args, 'mato_grosso_global_potential_'),
         ]
 
 
@@ -939,12 +939,12 @@ def main():
             ("to_stream", "to_stream", 0),
             ("from_stream", "from_stream", 0),
 #            ("from_stream", "from_stream_with_buffer_1", 1),
-            ("from_stream", "from_stream_with_buffer_1", 2),
-            ("from_stream", "from_stream_with_buffer_2", 3),
-            ("ag", "ag", 0),
-            ("core", "core", 0),
-            ("edge", "edge", 0),
-            ("fragmentation", "fragmentation", 0),
+            #("from_stream", "from_stream_with_buffer_1", 2),
+            #("from_stream", "from_stream_with_buffer_2", 3),
+            #("ag", "ag", 0),
+            #("core", "core", 0),
+            #("edge", "edge", 0),
+            #("fragmentation", "fragmentation", 0),
             #("from_stream", "from_stream_with_buffer_1", 1),
             #("from_stream", "from_stream_with_buffer_2", 2),
             #("from_stream", "from_stream_with_buffer_3", 3),
