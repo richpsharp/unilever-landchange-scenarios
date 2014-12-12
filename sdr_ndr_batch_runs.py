@@ -720,7 +720,8 @@ def run_nutrient_analysis(parameters, land_cover_uri_list, summary_table_uri):
         #no need to keep output and intermediate directories
         for directory in [os.path.join(ndr_args['workspace_dir'], 'output'), os.path.join(ndr_args['workspace_dir'], 'intermediate')]:
             try:
-                shutil.rmtree(directory)
+                #shutil.rmtree(directory)
+                pass
             except OSError as e:
                 print "can't remove directory " + str(e)
 
