@@ -940,9 +940,9 @@ def main():
         simulation_list = [
             ("to_stream", "to_stream", 0),
             ("from_stream", "from_stream", 0),
-            ("from_stream", "from_stream_with_buffer_1", 1),
+            #("from_stream", "from_stream_with_buffer_1", 1),
             ("from_stream", "from_stream_with_buffer_1", 2),
-            #("from_stream", "from_stream_with_buffer_2", 3),
+            ("from_stream", "from_stream_with_buffer_2", 3),
             ("ag", "ag", 0),
             ("core", "core", 0),
             ("edge", "edge", 0),
