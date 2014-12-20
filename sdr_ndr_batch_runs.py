@@ -1030,13 +1030,16 @@ def main():
             summary_table.write('\n')
         summary_table.close()
 
-
-
+        
 if __name__ == '__main__':
+    ADDRESS_LIST = ["3152624786@txt.att.net", "8313316015@txt.att.net"]
     try:
-        raster_utils.email_report("Starting unilever runs", "3152624786@txt.att.net")
+        for addresss in ADDRESS_LIST:
+            raster_utils.email_report("Starting unilever runs", addresss)
         main()
-        raster_utils.email_report("Done with unilever runs", "3152624786@txt.att.net")
+        for addresss in ADDRESS_LIST:
+            raster_utils.email_report("Done with unilever runs", addresss)
     except Exception as e:
-        raster_utils.email_report("Something broke on unilever runs, ABORTING", "3152624786@txt.att.net")
+        for addresss in ADDRESS_LIST:
+            raster_utils.email_report("Something broke on unilever runs, ABORTING", addresss)
         raise e
