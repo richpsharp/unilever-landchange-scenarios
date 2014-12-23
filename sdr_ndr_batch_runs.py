@@ -794,6 +794,7 @@ def main():
     willamette_args.update(PARAMETERS)
     
     heilongjiang_global_args = {
+        'threshold_flow_accumulation': 1500,
         u'convert_from_lulc_codes': range(1,11), #convert lulcs 1-10
         u'convert_to_lulc_code': 12, #this is croplands
         u'biophysical_table_uri': os.path.join(BASE_FOLDER, 'Input_Heilongjiang_global_Unilever_10_09_2014/biophysical_coeffs_Heilongjang_Unilever_global.csv'),
@@ -808,6 +809,7 @@ def main():
     heilongjiang_global_args.update(PARAMETERS)
 
     iowa_global_args = {
+        'threshold_flow_accumulation': 2000,
         u'convert_from_lulc_codes': range(1,11), #convert lulcs 1-10
         u'convert_to_lulc_code': 12, #this is croplands
         u'biophysical_table_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/biophysical_coeffs_Iowa_Unilever_global.csv'),
@@ -822,6 +824,7 @@ def main():
     iowa_global_args.update(PARAMETERS)
 
     jiangxi_global_args = {
+        'threshold_flow_accumulation': 2000,
         u'convert_from_lulc_codes': range(1,11), #convert lulcs 1-10
         u'convert_to_lulc_code': 12, #this is croplands
         u'biophysical_table_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/biophysical_coeffs_Jiangxi_Unilever_global.csv'),
@@ -836,6 +839,7 @@ def main():
     jiangxi_global_args.update(PARAMETERS)
 
     mato_grosso_global_args = {
+        'threshold_flow_accumulation': 2500,
         u'convert_from_lulc_codes': range(1,11), #convert lulcs 1-10
         u'convert_to_lulc_code': 16, #this is croplands
         u'biophysical_table_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/biophysical_coeffs_Brazil_Unilever_global.csv'),
@@ -851,6 +855,7 @@ def main():
 
 
     heilongjiang_global_potential_args = {
+        'threshold_flow_accumulation': 1500,
         u'convert_from_lulc_codes': range(1,13), #convert lulcs 1-10
         u'convert_to_lulc_code': 16, #this is croplands
         u'biophysical_table_uri': os.path.join(BASE_FOLDER, 'Input_Heilongjiang_global_Unilever_10_09_2014/biophysical_coeffs_Heilongjang_Unilever_global_potential.csv'),
@@ -865,6 +870,7 @@ def main():
     heilongjiang_global_potential_args.update(PARAMETERS)
 
     iowa_global_potential_args = {
+        'threshold_flow_accumulation': 2000,
         u'convert_from_lulc_codes': range(1,13), #convert lulcs 1-10
         u'convert_to_lulc_code': 16, #this is croplands
         u'biophysical_table_uri': os.path.join(BASE_FOLDER, 'Input_Iowa_global_Unilever_10_09_2014/biophysical_coeffs_Iowa_Unilever_global_potential.csv'),
@@ -879,6 +885,7 @@ def main():
     iowa_global_potential_args.update(PARAMETERS)
 
     jiangxi_global_potential_args = {
+        'threshold_flow_accumulation': 2000,
         u'convert_from_lulc_codes': range(1,13), #convert lulcs 1-10
         u'convert_to_lulc_code': 16, #this is croplands
         u'biophysical_table_uri': os.path.join(BASE_FOLDER, 'Input_Jiangxi_global_Unilever_10_09_2014/biophysical_coeffs_Jiangxi_Unilever_global_potential.csv'),
@@ -893,6 +900,7 @@ def main():
     jiangxi_global_potential_args.update(PARAMETERS)
 
     mato_grosso_global_potential_args = {
+        'threshold_flow_accumulation': 2500,
         u'convert_from_lulc_codes': range(1,13), #convert lulcs 1-10
         u'convert_to_lulc_code': 16, #this is croplands
         u'biophysical_table_uri': os.path.join(BASE_FOLDER, 'Input_MatoGrosso_global_Unilever_10_09_2014/biophysical_coeffs_Brazil_Unilever_global_potential.csv'),
